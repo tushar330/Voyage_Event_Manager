@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { EventProvider } from "@/context/EventContext";
 import { AuthProvider } from "@/context/AuthContext";
+import QueryProvider from "@/components/providers/QueryProvider";
 
 
 const inter = Inter({
@@ -23,12 +24,23 @@ export default function RootLayout({
 }>) {
   return (
       <html lang="en" suppressHydrationWarning>
+<<<<<<< Updated upstream
         <body className={`${inter.variable} font-sans`} suppressHydrationWarning>
           <AuthProvider>
             <EventProvider>
               {children}
             </EventProvider>
           </AuthProvider>
+=======
+        <body className={`${inter.variable} font-sans`}>
+          <QueryProvider>
+            <AuthProvider>
+              <EventProvider>
+                {children}
+              </EventProvider>
+            </AuthProvider>
+          </QueryProvider>
+>>>>>>> Stashed changes
         </body>
       </html>
   );
