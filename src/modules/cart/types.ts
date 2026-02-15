@@ -1,4 +1,4 @@
-export type CartItemType = 'room' | 'banquet' | 'catering' | 'flight';
+export type CartItemType = 'room' | 'banquet' | 'catering' | 'flight' | 'hotel';
 export type CartItemStatus = 'wishlist' | 'approved' | 'booked';
 
 export interface CartItem {
@@ -30,6 +30,7 @@ export interface CartItemDetail {
     banquet_details?: any;
     catering_details?: any;
     flight_details?: any;
+    hotel_details?: any;
 }
 
 export interface HotelCartGroup {
@@ -37,6 +38,7 @@ export interface HotelCartGroup {
     rooms: CartItemDetail[];
     banquets: CartItemDetail[];
     catering: CartItemDetail[];
+    hotel_wishlist_item?: CartItemDetail; // Support direct hotel wishlist
 }
 
 export interface CartResponse {
@@ -47,7 +49,7 @@ export interface CartResponse {
 
 export interface AddToCartRequest {
     type: CartItemType;
-    refId: string;       // ID of the room/banquet/etc.
+    refId: string;       // ID of the room/banquet/hotel/etc.
     quantity?: number;   // Default: 1
     notes?: string;
 }

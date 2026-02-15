@@ -1,11 +1,11 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useHotelDiscovery } from "@/modules/hotels/hooks/useHotelDiscovery";
 import { Hotel } from "@/modules/hotels/types";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cartApi } from "@/modules/cart/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { Toaster, toast } from "sonner";
@@ -514,25 +514,6 @@ export default function HotelListingPage() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
 
-  // 1. Fetch Cart Data
-  const { data: cartData, isLoading: cartLoading } = useQuery({
-    queryKey: ["cart", eventId],
-    queryFn: () => cartApi.getCart(eventId, undefined, token || undefined),
-    enabled: !!eventId && !!token,
-  });
-
-  // Extract wishlist IDs for the heart icons (optimistic UI sync)
-  const serverWishlistIds = useMemo(() => {
-    if (!cartData) return [];
-    const ids: string[] = [];
-    cartData.hotels.forEach((group) => {
-      if (group.hotel_details?.id) {
-        ids.push(group.hotel_details.id);
-      }
-    });
-    return ids;
-  }, [cartData]);
-
   // Wishlist Mutation
   const wishlistMutation = useMutation({
     mutationFn: async ({
@@ -547,7 +528,7 @@ export default function HotelListingPage() {
         return cartApi.addToCart(
           eventId,
           {
-            type: "room",
+            type: "hotel",
             refId: refId,
             quantity: 1,
           },
@@ -569,15 +550,8 @@ export default function HotelListingPage() {
     },
   });
 
-  // Sync local wishlist with server data on load
+  // Simplified wishlist state for UI toggle (local only for instant feedback, real data would come from query)
   const [localWishlist, setLocalWishlist] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (serverWishlistIds.length > 0) {
-      setLocalWishlist(serverWishlistIds);
-    }
-  }, [serverWishlistIds]);
-
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
   const toggleWishlist = async (hotel: Hotel, e: React.MouseEvent) => {
@@ -588,13 +562,9 @@ export default function HotelListingPage() {
       setLocalWishlist((prev) => prev.filter((id) => id !== hotel.id));
       toast.info("Removed from local wishlist (API removal TBD)");
     } else {
-      if (!hotel.primary_room_offer_id) {
-        toast.error("No room offers available for this hotel");
-        return;
-      }
       setLocalWishlist((prev) => [...prev, hotel.id]);
       wishlistMutation.mutate({
-        refId: hotel.primary_room_offer_id,
+        refId: hotel.id,
         action: "add",
       });
     }
