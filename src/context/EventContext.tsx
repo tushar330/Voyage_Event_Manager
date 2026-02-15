@@ -87,7 +87,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
         startDate: eventData.startDate, // Assuming ISO string from frontend
         endDate: eventData.endDate,
         hotelId: "default", // Backend requires this? It was string.
-        roomsInventory: {},
+        roomsInventory: [],
       };
 
       const res = await fetch(`${backendUrl}/api/v1/events`, {

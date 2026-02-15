@@ -9,12 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-<<<<<<< Updated upstream
-    "framer-motion": "^12.34.0",
-=======
     "@clerk/nextjs": "^6.37.4",
     "@tanstack/react-query": "^5.90.21",
->>>>>>> Stashed changes
+    "framer-motion": "^12.34.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",

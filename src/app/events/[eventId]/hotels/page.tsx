@@ -5,6 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useHotelDiscovery } from "@/modules/hotels/hooks/useHotelDiscovery";
 import { Hotel } from "@/modules/hotels/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { cartApi } from "@/modules/cart/services/api";
+import { useAuth } from "@/context/AuthContext";
+import { Toaster, toast } from "sonner";
 
 // --- Components ---
 
@@ -507,31 +511,67 @@ export default function HotelListingPage() {
     { id: "quad", label: "Quad", occupants: 4, count: 0 },
   ]);
 
-  // Wishlist State
-  const [wishlist, setWishlist] = useState<string[]>(() => {
-    // Initialize from localStorage if available (client-side only check ideally, but useState initializer runs on client)
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`wishlist_${eventId}`);
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Wishlist Mutation
+  const wishlistMutation = useMutation({
+    mutationFn: async ({
+      refId,
+      action,
+    }: {
+      refId: string;
+      action: "add" | "remove";
+    }) => {
+      if (!token) throw new Error("Authentication required");
+      if (action === "add") {
+        return cartApi.addToCart(
+          eventId,
+          {
+            type: "hotel",
+            refId: refId,
+            quantity: 1,
+          },
+          token,
+        );
+      }
+      // For removal, we'd need the cartItemId.
+      // Simplified for now: adding to wishlist is the primary request.
+    },
+    onSuccess: (_, variables) => {
+      if (variables.action === "add") {
+        toast.success("Hotel added to wishlist!");
+      }
+      // Invalidate cart queries if they exist
+      queryClient.invalidateQueries({ queryKey: ["cart", eventId] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to update wishlist");
+    },
   });
+
+  // Simplified wishlist state for UI toggle (local only for instant feedback, real data would come from query)
+  const [localWishlist, setLocalWishlist] = useState<string[]>([]);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
-  // Persist Wishlist
-  const toggleWishlist = (hotelId: string, e: React.MouseEvent) => {
+  const toggleWishlist = async (hotel: Hotel, e: React.MouseEvent) => {
     e.stopPropagation();
-    setWishlist((prev) => {
-      const next = prev.includes(hotelId)
-        ? prev.filter((id) => id !== hotelId)
-        : [...prev, hotelId];
-      localStorage.setItem(`wishlist_${eventId}`, JSON.stringify(next));
-      return next;
-    });
+
+    if (localWishlist.includes(hotel.id)) {
+      // Handle removal if needed, for now just notify
+      setLocalWishlist((prev) => prev.filter((id) => id !== hotel.id));
+      toast.info("Removed from local wishlist (API removal TBD)");
+    } else {
+      setLocalWishlist((prev) => [...prev, hotel.id]);
+      wishlistMutation.mutate({
+        refId: hotel.id,
+        action: "add",
+      });
+    }
   };
 
   const handleSendToHeadGuest = () => {
-    alert("Shortlist sent to Head Guest successfully!");
+    toast.success("Shortlist sent to Head Guest successfully!");
     setIsWishlistOpen(false);
   };
 
@@ -604,15 +644,18 @@ export default function HotelListingPage() {
       <WishlistDrawer
         isOpen={isWishlistOpen}
         onClose={() => setIsWishlistOpen(false)}
-        wishlistIds={wishlist}
+        wishlistIds={localWishlist}
         allHotels={discoveredHotels}
-        onRemove={(id) =>
-          toggleWishlist(id, { stopPropagation: () => {} } as any)
-        }
+        onRemove={(id) => {
+          const hotel = discoveredHotels.find((h) => h.id === id);
+          if (hotel)
+            toggleWishlist(hotel, { stopPropagation: () => {} } as any);
+        }}
         onSendToHeadGuest={handleSendToHeadGuest}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Toaster position="top-right" richColors />
         {/* Header with Wishlist Toggle */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-neutral-900">Find Hotels</h1>
@@ -622,7 +665,7 @@ export default function HotelListingPage() {
           >
             <div className="flex items-center gap-2">
               <svg
-                className={`w-6 h-6 ${wishlist.length > 0 ? "text-red-500 fill-current" : "text-neutral-400 group-hover:text-red-400"}`}
+                className={`w-6 h-6 ${localWishlist.length > 0 ? "text-red-500 fill-current" : "text-neutral-400 group-hover:text-red-400"}`}
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 strokeWidth="1.5"
@@ -637,9 +680,9 @@ export default function HotelListingPage() {
               </svg>
               <span className="font-semibold text-neutral-700">Wishlist</span>
             </div>
-            {wishlist.length > 0 && (
+            {localWishlist.length > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
-                {wishlist.length}
+                {localWishlist.length}
               </span>
             )}
           </button>
@@ -709,7 +752,7 @@ export default function HotelListingPage() {
               ) : (
                 <AnimatePresence mode="popLayout">
                   {filteredHotels.map((hotel: Hotel, index: number) => {
-                    const isWishlisted = wishlist.includes(hotel.id);
+                    const isWishlisted = localWishlist.includes(hotel.id);
                     return (
                       <motion.div
                         key={hotel.id}
@@ -722,7 +765,7 @@ export default function HotelListingPage() {
                       >
                         {/* Wishlist Button on Card */}
                         <button
-                          onClick={(e) => toggleWishlist(hotel.id, e)}
+                          onClick={(e) => toggleWishlist(hotel, e)}
                           className="absolute top-3 right-3 z-10 p-2 rounded-full bg-white/10 backdrop-blur-md hover:bg-white shadow-sm transition-all group-wishlist"
                         >
                           <svg
