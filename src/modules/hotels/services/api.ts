@@ -16,21 +16,27 @@ export const hotelApi = {
 
         // Map backend PascalCase to camelCase
         const hotelsList = result.data || [];
-        return hotelsList.map((h: any) => ({
-            id: h.id || h.hotel_code,
-            name: h.name,
-            location: h.address || h.location,
-            amenities: h.facilities || h.amenities || [],
-            stars: h.star_rating || h.stars || 0,
-            image: (h.image_urls && h.image_urls[0]) || h.image || '',
-            occupancy: h.occupancy || 0,
-            // Fallbacks for missing fields in basic list
-            price: h.price || 0,
-            rating: h.rating || 4.5,
-            description: h.description || '',
-            primary_room_offer_id: (h.rooms && h.rooms.length > 0) ? h.rooms[0].id : null,
-            type: h.type || 'Hotel'
-        }));
+        return hotelsList.map((h: any) => {
+            // Calculate starting price from rooms if available
+            const roomPrices = (h.rooms || []).map((r: any) => Number(r.total_fare || r.price || 0)).filter((p: number) => p > 0);
+            const minRoomPrice = roomPrices.length > 0 ? Math.min(...roomPrices) : 0;
+
+            return {
+                id: h.id || h.hotel_code,
+                name: h.name,
+                location: h.address || h.location,
+                amenities: h.facilities || h.amenities || [],
+                stars: h.star_rating || h.stars || 0,
+                image: (h.image_urls && h.image_urls[0]) || h.image || '',
+                occupancy: h.occupancy || 0,
+                // Fallbacks for missing fields in basic list
+                price: h.price || minRoomPrice || 0,
+                rating: h.rating || 4.5,
+                description: h.description || '',
+                primary_room_offer_id: (h.rooms && h.rooms.length > 0) ? h.rooms[0].id : null,
+                type: h.type || 'Hotel'
+            };
+        });
     },
 
     /**

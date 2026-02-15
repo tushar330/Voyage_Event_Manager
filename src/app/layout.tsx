@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { EventProvider } from "@/context/EventContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { CartProvider } from "@/context/CartContext";
 import QueryProvider from "@/components/providers/QueryProvider";
 
 const inter = Inter({
@@ -27,7 +28,9 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans`} suppressHydrationWarning>
         <AuthProvider>
           <QueryProvider>
-            <EventProvider>{children}</EventProvider>
+            <CartProvider>
+              <EventProvider>{children}</EventProvider>
+            </CartProvider>
           </QueryProvider>
         </AuthProvider>
       </body>

@@ -6,6 +6,9 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import EventModal from "@/components/legacy/EventModal";
 import { useEvents } from "@/context/EventContext";
+import { useCart } from "@/context/CartContext";
+
+import { useEffect } from "react";
 
 interface Hotel {
   id: string;
@@ -28,19 +31,30 @@ export default function EventDashboardPage() {
   const [activeSection, setActiveSection] = useState<Section | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+
   const { events, loading: eventsLoading, error: eventsError } = useEvents();
+  const { cart, fetchCart } = useCart();
   const { isAuthenticated, token } = useAuth();
-  
-  const currentEvent = events.find(e => e.id === eventId);
+
+  useEffect(() => {
+    if (eventId) {
+      fetchCart(eventId);
+    }
+  }, [eventId, fetchCart]);
+
+  const currentEvent = events.find((e) => e.id === eventId);
 
   if (eventsLoading) {
     return <div className="p-8 text-center">Loading event details...</div>;
   }
 
   if (!currentEvent && !eventsLoading) {
-     return <div className="p-8 text-center text-red-500">Event not found. Please try refreshing or check the URL.</div>;
+    return (
+      <div className="p-8 text-center text-red-500">
+        Event not found. Please try refreshing or check the URL.
+      </div>
+    );
   }
-
 
   const handleSectionClick = (section: Section) => {
     setActiveSection(activeSection === section ? null : section);
@@ -66,68 +80,110 @@ export default function EventDashboardPage() {
             Manage all aspects of your event from one place.
           </p>
         </div>
-      <div className="flex gap-4">
-        <button
-          onClick={() => setShowEditModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-all shadow-sm"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          Edit Details
-        </button>
-        <button
-          onClick={() => {
-            const url = `${window.location.origin}/events/${eventId}/guests`;
-            navigator.clipboard.writeText(url);
-            const btn = document.getElementById("copy-btn");
-            if (btn) {
-              const originalText = btn.innerText;
-              btn.innerText = "Copied!";
-              btn.classList.add(
-                "bg-green-600",
-                "text-white",
-                "border-green-600",
-              );
-              btn.classList.remove(
-                "bg-white",
-                "text-neutral-600",
-                "border-neutral-200",
-              );
-              setTimeout(() => {
-                btn.innerText = originalText;
-                btn.classList.remove(
+        <div className="flex gap-4">
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-all shadow-sm"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+            Edit Details
+          </button>
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/events/${eventId}/guests`;
+              navigator.clipboard.writeText(url);
+              const btn = document.getElementById("copy-btn");
+              if (btn) {
+                const originalText = btn.innerText;
+                btn.innerText = "Copied!";
+                btn.classList.add(
                   "bg-green-600",
                   "text-white",
                   "border-green-600",
                 );
-                btn.classList.add(
+                btn.classList.remove(
                   "bg-white",
                   "text-neutral-600",
                   "border-neutral-200",
                 );
-              }, 2000);
-            }
-          }}
-          id="copy-btn"
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-all shadow-sm"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+                setTimeout(() => {
+                  btn.innerText = originalText;
+                  btn.classList.remove(
+                    "bg-green-600",
+                    "text-white",
+                    "border-green-600",
+                  );
+                  btn.classList.add(
+                    "bg-white",
+                    "text-neutral-600",
+                    "border-neutral-200",
+                  );
+                }, 2000);
+              }
+            }}
+            id="copy-btn"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-all shadow-sm"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-            />
-          </svg>
-          Copy Guest Invite Link
-        </button>
-      </div>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+              />
+            </svg>
+            Copy Guest Invite Link
+          </button>
+          <Link
+            href={`/events/${eventId}/cart`}
+            className="relative flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-black transition-all shadow-lg active:scale-95 group"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+            Cart
+            {cart && (cart.hotels?.length > 0 || cart.flights?.length > 0) && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm ring-1 ring-red-100 animate-in zoom-in duration-300">
+                {(cart.hotels || []).reduce(
+                  (acc, h) =>
+                    acc +
+                    (h.rooms?.length || 0) +
+                    (h.banquets?.length || 0) +
+                    (h.catering?.length || 0) +
+                    (h.hotel_wishlist_item ? 1 : 0),
+                  0,
+                ) + (cart.flights?.length || 0)}
+              </span>
+            )}
+          </Link>
+        </div>
       </div>
 
       {/* Main Sections Grid Layout */}

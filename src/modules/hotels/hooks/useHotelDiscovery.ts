@@ -25,7 +25,7 @@ export const useHotelDiscovery = ({ eventId }: UseHotelDiscoveryProps) => {
 
     useEffect(() => {
         const discoverHotels = async () => {
-            if (!event || !event.location) return;
+            if (!event || !event.location || !token) return;
 
             setLoading(true);
             setError(null);

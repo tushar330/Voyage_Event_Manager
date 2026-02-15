@@ -1,5 +1,5 @@
 export type CartItemType = 'room' | 'banquet' | 'catering' | 'flight' | 'hotel';
-export type CartItemStatus = 'wishlist' | 'approved' | 'booked';
+export type CartItemStatus = 'wishlist' | 'cart' | 'approved' | 'booked';
 
 export interface CartItem {
     id: string; // UUID
@@ -52,6 +52,7 @@ export interface AddToCartRequest {
     refId: string;       // ID of the room/banquet/hotel/etc.
     quantity?: number;   // Default: 1
     notes?: string;
+    status?: CartItemStatus;
 }
 
 export interface UpdateCartItemRequest {

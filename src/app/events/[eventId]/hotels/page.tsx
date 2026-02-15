@@ -9,6 +9,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cartApi } from "@/modules/cart/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { Toaster, toast } from "sonner";
+import { useCart } from "@/context/CartContext";
+
+import { useEffect } from "react";
 
 // --- Components ---
 
@@ -285,199 +288,7 @@ const RoomClusterSelector = ({
   );
 };
 
-// --- Wishlist Drawer Component ---
-
-const WishlistDrawer = ({
-  isOpen,
-  onClose,
-  wishlistIds,
-  allHotels,
-  onRemove,
-  onSendToHeadGuest,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  wishlistIds: string[];
-  allHotels: Hotel[];
-  onRemove: (id: string) => void;
-  onSendToHeadGuest: () => void;
-}) => {
-  const [activeTab, setActiveTab] = useState<"shortlist" | "approved">(
-    "shortlist",
-  );
-
-  // Mock Approved Hotels (Subset for demo)
-  const approvedHotels = useMemo(() => allHotels.slice(0, 2), [allHotels]);
-  const shortlistedHotels = useMemo(
-    () => allHotels.filter((h: Hotel) => wishlistIds.includes(h.id)),
-    [allHotels, wishlistIds],
-  );
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-        <div className="p-6 border-b border-neutral-100 flex justify-between items-center bg-white">
-          <h2 className="text-xl font-bold text-neutral-900">Hotel Wishlist</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-neutral-100 rounded-full transition-colors"
-          >
-            <svg
-              className="w-6 h-6 text-neutral-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-neutral-200">
-          <button
-            onClick={() => setActiveTab("shortlist")}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === "shortlist" ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/30" : "text-neutral-500 hover:text-neutral-700"}`}
-          >
-            My Shortlist ({shortlistedHotels.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("approved")}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === "approved" ? "text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/30" : "text-neutral-500 hover:text-neutral-700"}`}
-          >
-            Approved ({approvedHotels.length})
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-neutral-50">
-          {activeTab === "shortlist" ? (
-            <div className="space-y-4">
-              {shortlistedHotels.length === 0 ? (
-                <div className="text-center py-10 opacity-50">
-                  <p>Your shortlist is empty.</p>
-                </div>
-              ) : (
-                shortlistedHotels.map((hotel: Hotel) => (
-                  <div
-                    key={hotel.id}
-                    className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex gap-4"
-                  >
-                    <img
-                      src={hotel.image}
-                      alt={hotel.name}
-                      className="w-20 h-20 rounded-lg object-cover bg-neutral-200"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-bold text-neutral-900 line-clamp-1">
-                        {hotel.name}
-                      </h4>
-                      <p className="text-xs text-neutral-500 mb-2">
-                        {hotel.location}
-                      </p>
-                      <button
-                        onClick={() => onRemove(hotel.id)}
-                        className="text-xs text-red-500 font-medium hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {approvedHotels.map((hotel: Hotel) => (
-                <div
-                  key={hotel.id}
-                  className="bg-white p-4 rounded-xl shadow-sm border border-emerald-200 ring-1 ring-emerald-100 flex gap-4"
-                >
-                  <div className="relative">
-                    <img
-                      src={hotel.image}
-                      alt={hotel.name}
-                      className="w-20 h-20 rounded-lg object-cover bg-neutral-200"
-                    />
-                    <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-sm">
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={3}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-neutral-900 line-clamp-1">
-                      {hotel.name}
-                    </h4>
-                    <p className="text-xs text-neutral-500 mb-1">
-                      {hotel.location}
-                    </p>
-                    <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider rounded">
-                      Host Approved
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        {activeTab === "shortlist" && (
-          <div className="p-6 border-t border-neutral-200 bg-white">
-            <button
-              onClick={onSendToHeadGuest}
-              disabled={shortlistedHotels.length === 0}
-              className="w-full py-3 bg-neutral-900 text-white font-bold rounded-lg shadow-lg hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <span>Send to Head Guest</span>
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
-            </button>
-            <p className="text-xs text-center text-neutral-400 mt-3">
-              Head Guest will review and approve hotels for the event.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+// --- Room Cluster Component ---
 
 // --- Page Component ---
 
@@ -513,66 +324,51 @@ export default function HotelListingPage() {
 
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const { cart, fetchCart, addToCart, removeFromCart } = useCart();
 
-  // Wishlist Mutation
-  const wishlistMutation = useMutation({
-    mutationFn: async ({
-      refId,
-      action,
-    }: {
-      refId: string;
-      action: "add" | "remove";
-    }) => {
-      if (!token) throw new Error("Authentication required");
-      if (action === "add") {
-        return cartApi.addToCart(
-          eventId,
-          {
-            type: "hotel",
-            refId: refId,
-            quantity: 1,
-          },
-          token,
-        );
-      }
-      // For removal, we'd need the cartItemId.
-      // Simplified for now: adding to wishlist is the primary request.
-    },
-    onSuccess: (_, variables) => {
-      if (variables.action === "add") {
-        toast.success("Hotel added to wishlist!");
-      }
-      // Invalidate cart queries if they exist
-      queryClient.invalidateQueries({ queryKey: ["cart", eventId] });
-    },
-    onError: (err: any) => {
-      toast.error(err.message || "Failed to update wishlist");
-    },
-  });
+  useEffect(() => {
+    if (eventId) {
+      fetchCart(eventId);
+    }
+  }, [eventId, fetchCart]);
 
-  // Simplified wishlist state for UI toggle (local only for instant feedback, real data would come from query)
-  const [localWishlist, setLocalWishlist] = useState<string[]>([]);
-  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+  const wishlistIds = useMemo(() => {
+    if (!cart) return [];
+    return cart.hotels
+      .filter((h) => h.hotel_wishlist_item)
+      .map((h) => h.hotel_details?.id || "");
+  }, [cart]);
+
+  // Wishlist Mutation (Deprecated - using CartContext now)
 
   const toggleWishlist = async (hotel: Hotel, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (localWishlist.includes(hotel.id)) {
-      // Handle removal if needed, for now just notify
-      setLocalWishlist((prev) => prev.filter((id) => id !== hotel.id));
-      toast.info("Removed from local wishlist (API removal TBD)");
+    if (wishlistIds.includes(hotel.id)) {
+      // Find the cart item ID for this hotel wishlist item
+      const hotelGroup = cart?.hotels.find(
+        (h) => h.hotel_details?.id === hotel.id,
+      );
+      if (hotelGroup?.hotel_wishlist_item) {
+        try {
+          await removeFromCart(eventId, hotelGroup.hotel_wishlist_item.id);
+          toast.success("Removed from wishlist");
+        } catch (err: any) {
+          toast.error(err.message || "Failed to remove from wishlist");
+        }
+      }
     } else {
-      setLocalWishlist((prev) => [...prev, hotel.id]);
-      wishlistMutation.mutate({
-        refId: hotel.id,
-        action: "add",
-      });
+      try {
+        await addToCart(eventId, {
+          type: "hotel",
+          refId: hotel.id,
+          quantity: 1,
+        });
+        toast.success("Added to wishlist!");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to add to wishlist");
+      }
     }
-  };
-
-  const handleSendToHeadGuest = () => {
-    toast.success("Shortlist sent to Head Guest successfully!");
-    setIsWishlistOpen(false);
   };
 
   // Filter & Sort Logic
@@ -641,51 +437,49 @@ export default function HotelListingPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24 relative">
-      <WishlistDrawer
-        isOpen={isWishlistOpen}
-        onClose={() => setIsWishlistOpen(false)}
-        wishlistIds={localWishlist}
-        allHotels={discoveredHotels}
-        onRemove={(id) => {
-          const hotel = discoveredHotels.find((h) => h.id === id);
-          if (hotel)
-            toggleWishlist(hotel, { stopPropagation: () => {} } as any);
-        }}
-        onSendToHeadGuest={handleSendToHeadGuest}
-      />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Toaster position="top-right" richColors />
         {/* Header with Wishlist Toggle */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-neutral-900">Find Hotels</h1>
-          <button
-            onClick={() => setIsWishlistOpen(true)}
-            className="relative p-3 bg-white border border-neutral-200 rounded-xl shadow-sm hover:shadow-md transition-all group"
-          >
-            <div className="flex items-center gap-2">
-              <svg
-                className={`w-6 h-6 ${localWishlist.length > 0 ? "text-red-500 fill-current" : "text-neutral-400 group-hover:text-red-400"}`}
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                strokeWidth="1.5"
-                stroke="currentColor"
-                fill="none"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-                />
-              </svg>
-              <span className="font-semibold text-neutral-700">Wishlist</span>
-            </div>
-            {localWishlist.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
-                {localWishlist.length}
-              </span>
-            )}
-          </button>
+          <div className="flex gap-4">
+            <Link
+              href={`/events/${eventId}`}
+              className="px-6 py-3 bg-white border border-neutral-200 rounded-xl font-bold text-neutral-600 hover:text-neutral-900 transition-all shadow-sm flex items-center gap-2 hover:bg-neutral-50"
+            >
+              Dashboard
+            </Link>
+            <Link
+              href={`/events/${eventId}/cart`}
+              className="px-6 py-3 bg-neutral-900 overflow-hidden text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg transform active:scale-95 flex items-center gap-3 group relative"
+            >
+              <div className="flex -space-x-2">
+                {cart?.hotels.slice(0, 3).map((group, i) => (
+                  <img
+                    key={i}
+                    src={group.hotel_details?.image || "/placeholder-hotel.jpg"}
+                    className="w-6 h-6 rounded-full border-2 border-neutral-900 object-cover"
+                    alt=""
+                  />
+                ))}
+              </div>
+              <span>View Cart</span>
+              {cart &&
+                (cart.hotels?.length > 0 || cart.flights?.length > 0) && (
+                  <span className="bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full inline-block animate-pulse">
+                    {(cart.hotels || []).reduce(
+                      (acc, h) =>
+                        acc +
+                        (h.rooms?.length || 0) +
+                        (h.banquets?.length || 0) +
+                        (h.catering?.length || 0) +
+                        (h.hotel_wishlist_item ? 1 : 0),
+                      0,
+                    ) + (cart.flights?.length || 0)}
+                  </span>
+                )}
+            </Link>
+          </div>
         </div>
 
         {/* Room Cluster Selector */}
@@ -752,7 +546,7 @@ export default function HotelListingPage() {
               ) : (
                 <AnimatePresence mode="popLayout">
                   {filteredHotels.map((hotel: Hotel, index: number) => {
-                    const isWishlisted = localWishlist.includes(hotel.id);
+                    const isWishlisted = wishlistIds.includes(hotel.id);
                     return (
                       <motion.div
                         key={hotel.id}
@@ -872,6 +666,9 @@ export default function HotelListingPage() {
                                 {Math.round(hotel.price * 1.2).toLocaleString()}
                               </span>
                               <div className="flex items-baseline gap-1">
+                                <span className="text-xs text-neutral-500 font-medium">
+                                  Starts from
+                                </span>
                                 <span className="text-2xl font-bold text-neutral-900">
                                   ₹{hotel.price.toLocaleString()}
                                 </span>

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { hotelApi } from "@/modules/hotels/services/api";
 import { Hotel, RoomType, Banquet, Catering } from "@/modules/hotels/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { useCart } from "@/context/CartContext";
 
 const TIME_SLOTS = [
   "Morning (9 AM - 1 PM)",
@@ -21,6 +23,7 @@ export default function HotelDetailsPage() {
   const router = useRouter();
   const { token } = useAuth();
   const { updateEvent } = useEvents();
+  const { addToCart } = useCart();
   const hotelId = params.hotelId as string;
   const eventId = params.eventId as string;
 
@@ -48,6 +51,7 @@ export default function HotelDetailsPage() {
     }
 
     const fetchData = async () => {
+      if (!token) return;
       setLoading(true);
       try {
         // Pass token to all API calls
@@ -106,6 +110,8 @@ export default function HotelDetailsPage() {
     };
   }, [rooms]);
 
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+
   if (!hotel) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 text-neutral-500">
@@ -161,45 +167,65 @@ export default function HotelDetailsPage() {
   const taxes = calculateTaxes(subtotal);
   const totalAmount = subtotal + taxes;
 
-  const handleSaveMapping = async () => {
+  const handleAddToCart = async () => {
     if (!hotel) return;
-
-    // Transform selectedRooms to roomsInventory payload
-    const roomsInventoryPayload = Object.entries(selectedRooms)
-      .filter(([_, qty]) => qty > 0)
-      .map(([roomId, qty]) => {
-        const room = rooms.find((r) => r.id === roomId);
-        return {
-          room_offer_id: roomId,
-          room_name: room?.name || "Unknown Room",
-          available: qty,
-          max_capacity: room?.capacity || 0,
-          price_per_room: room?.price || 0,
-        };
-      });
-
-    const mappingData = {
-      hotelId: hotel.id,
-      hotelName: hotel.name,
-      selectedRooms,
-      totalAmount,
-      timestamp: new Date().toISOString(),
-    };
+    setIsAddingToCart(true);
 
     try {
-      // Send update request to backend
-      await updateEvent(eventId, {
-        roomsInventory: roomsInventoryPayload,
+      // 1. Add Hotel to Cart (as a base wishlist/anchor item)
+      await addToCart(eventId, {
+        type: "hotel",
+        refId: hotel.id,
+        quantity: 1,
+        status: "cart",
       });
 
-      // Also save to local storage for backward compatibility / backup
-      localStorage.setItem(`mapping_${eventId}`, JSON.stringify(mappingData));
+      // 2. Add Rooms
+      const roomPromises = Object.entries(selectedRooms)
+        .filter(([_, qty]) => qty > 0)
+        .map(([roomId, qty]) =>
+          addToCart(eventId, {
+            type: "room",
+            refId: roomId,
+            quantity: qty,
+            status: "cart",
+          }),
+        );
 
-      console.log("Saving Mapping:", mappingData);
-      router.push(`/events/${eventId}/room-mapping`);
-    } catch (err) {
-      console.error("Failed to save mapping:", err);
-      // Optional: Show error to user
+      // 3. Add Banquet
+      if (selectedBanquetHall) {
+        roomPromises.push(
+          addToCart(eventId, {
+            type: "banquet",
+            refId: selectedBanquetHall.toString(),
+            quantity: 1,
+            notes: `Slot: ${selectedTimeSlot}, Date: ${eventDate}`,
+            status: "cart",
+          }),
+        );
+      }
+
+      // 4. Add Catering
+      if (selectedMealPlan) {
+        roomPromises.push(
+          addToCart(eventId, {
+            type: "catering",
+            refId: selectedMealPlan.toString(),
+            quantity: attendeeCount,
+            status: "cart",
+          }),
+        );
+      }
+
+      await Promise.all(roomPromises);
+
+      toast.success(`${hotel.name} items added to cart!`);
+      router.push(`/events/${eventId}`);
+    } catch (err: any) {
+      console.error("Failed to add items to cart:", err);
+      toast.error(err.message || "Failed to add items to cart");
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
@@ -509,329 +535,335 @@ export default function HotelDetailsPage() {
               </div>
 
               {/* Banquet Hall Selection */}
-              <div className="space-y-6 mt-8">
-                <h2 className="text-xl font-bold text-neutral-900">
-                  Banquet Hall Selection
-                </h2>
+              {banquets.length > 0 && (
+                <div className="space-y-6 mt-8">
+                  <h2 className="text-xl font-bold text-neutral-900">
+                    Banquet Hall Selection
+                  </h2>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left: Shared Controls */}
-                  <div className="lg:col-span-1 space-y-4">
-                    {/* Attendee Count */}
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-                      <h3 className="font-semibold text-neutral-900 mb-4">
-                        Number of Attendees
-                      </h3>
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() =>
-                            setAttendeeCount(Math.max(0, attendeeCount - 10))
-                          }
-                          className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-300 text-neutral-600 hover:bg-neutral-100 hover:border-neutral-400 transition-colors"
-                        >
-                          -
-                        </button>
-                        <div className="text-center">
-                          <div className="text-3xl font-bold text-neutral-900">
-                            {attendeeCount}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left: Shared Controls */}
+                    <div className="lg:col-span-1 space-y-4">
+                      {/* Attendee Count */}
+                      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+                        <h3 className="font-semibold text-neutral-900 mb-4">
+                          Number of Attendees
+                        </h3>
+                        <div className="flex items-center justify-between">
+                          <button
+                            onClick={() =>
+                              setAttendeeCount(Math.max(0, attendeeCount - 10))
+                            }
+                            className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-300 text-neutral-600 hover:bg-neutral-100 hover:border-neutral-400 transition-colors"
+                          >
+                            -
+                          </button>
+                          <div className="text-center">
+                            <div className="text-3xl font-bold text-neutral-900">
+                              {attendeeCount}
+                            </div>
+                            <div className="text-sm text-neutral-500">
+                              people
+                            </div>
                           </div>
-                          <div className="text-sm text-neutral-500">people</div>
+                          <button
+                            onClick={() => setAttendeeCount(attendeeCount + 10)}
+                            className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-300 text-neutral-600 hover:bg-neutral-100 hover:border-neutral-400 transition-colors"
+                          >
+                            +
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setAttendeeCount(attendeeCount + 10)}
-                          className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-300 text-neutral-600 hover:bg-neutral-100 hover:border-neutral-400 transition-colors"
-                        >
-                          +
-                        </button>
+                        <p className="text-xs text-neutral-500 mt-3 text-center">
+                          Adjust in increments of 10
+                        </p>
                       </div>
-                      <p className="text-xs text-neutral-500 mt-3 text-center">
-                        Adjust in increments of 10
-                      </p>
+
+                      {/* Time Slot Selection */}
+                      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+                        <h3 className="font-semibold text-neutral-900 mb-4">
+                          Event Date & Duration
+                        </h3>
+
+                        {/* Date Picker */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-neutral-700 mb-2">
+                            Event Date
+                          </label>
+                          <input
+                            type="date"
+                            value={eventDate}
+                            onChange={(e) => setEventDate(e.target.value)}
+                            min={new Date().toISOString().split("T")[0]}
+                            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          />
+                        </div>
+
+                        {/* Duration/Slot Selection */}
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 mb-2">
+                            Duration
+                          </label>
+                          <div className="space-y-2">
+                            {TIME_SLOTS.map((slot) => (
+                              <label
+                                key={slot}
+                                className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                                  selectedTimeSlot === slot
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="timeSlot"
+                                  checked={selectedTimeSlot === slot}
+                                  onChange={() => setSelectedTimeSlot(slot)}
+                                  className="w-4 h-4 text-blue-600"
+                                />
+                                <span
+                                  className={`text-sm ${selectedTimeSlot === slot ? "font-medium text-blue-900" : "text-neutral-700"}`}
+                                >
+                                  {slot}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Time Slot Selection */}
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-                      <h3 className="font-semibold text-neutral-900 mb-4">
-                        Event Date & Duration
-                      </h3>
-
-                      {/* Date Picker */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-neutral-700 mb-2">
-                          Event Date
-                        </label>
-                        <input
-                          type="date"
-                          value={eventDate}
-                          onChange={(e) => setEventDate(e.target.value)}
-                          min={new Date().toISOString().split("T")[0]}
-                          className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
-                      </div>
-
-                      {/* Duration/Slot Selection */}
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-700 mb-2">
-                          Duration
-                        </label>
-                        <div className="space-y-2">
-                          {TIME_SLOTS.map((slot) => (
+                    {/* Right: Hall Types */}
+                    <div className="lg:col-span-2">
+                      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                        <div className="bg-neutral-50 px-6 py-3 border-b border-neutral-200 font-semibold text-neutral-700">
+                          Available Banquet Halls
+                        </div>
+                        <div className="p-6 space-y-4">
+                          {banquets.map((hall: Banquet) => (
                             <label
-                              key={slot}
-                              className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
-                                selectedTimeSlot === slot
+                              key={hall.id}
+                              className={`block p-4 border rounded-xl cursor-pointer transition-all ${
+                                selectedBanquetHall === hall.id
                                   ? "border-blue-500 bg-blue-50"
                                   : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
                               }`}
                             >
-                              <input
-                                type="radio"
-                                name="timeSlot"
-                                checked={selectedTimeSlot === slot}
-                                onChange={() => setSelectedTimeSlot(slot)}
-                                className="w-4 h-4 text-blue-600"
-                              />
-                              <span
-                                className={`text-sm ${selectedTimeSlot === slot ? "font-medium text-blue-900" : "text-neutral-700"}`}
-                              >
-                                {slot}
-                              </span>
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <input
+                                    type="radio"
+                                    name="banquetHall"
+                                    checked={selectedBanquetHall === hall.id}
+                                    onChange={() =>
+                                      setSelectedBanquetHall(hall.id)
+                                    }
+                                    className="mt-1 w-4 h-4 text-blue-600"
+                                  />
+                                  <div className="flex-1">
+                                    <h4
+                                      className={`font-semibold ${selectedBanquetHall === hall.id ? "text-blue-900" : "text-neutral-900"}`}
+                                    >
+                                      {hall.name}
+                                    </h4>
+                                    <p className="text-sm text-neutral-600 mt-1">
+                                      Capacity: Up to {hall.capacity} people
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                      {hall.facilities.map(
+                                        (facility: string) => (
+                                          <span
+                                            key={facility}
+                                            className={`px-2 py-1 rounded-full text-xs ${
+                                              selectedBanquetHall === hall.id
+                                                ? "bg-blue-100 text-blue-700"
+                                                : "bg-neutral-100 text-neutral-600"
+                                            }`}
+                                          >
+                                            {facility}
+                                          </span>
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right ml-4">
+                                  <div
+                                    className={`font-bold text-lg ${selectedBanquetHall === hall.id ? "text-blue-600" : "text-neutral-900"}`}
+                                  >
+                                    ₹{(hall.pricePerSlot || 0).toLocaleString()}
+                                  </div>
+                                  <div className="text-xs text-neutral-500">
+                                    per slot
+                                  </div>
+                                </div>
+                              </div>
+                            </label>
+                          ))}
+                          {attendeeCount > 0 && selectedBanquetHall && (
+                            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                              <p className="text-sm text-amber-800">
+                                <strong>Note:</strong> Selected hall capacity
+                                should accommodate {attendeeCount} attendees.
+                                {(() => {
+                                  const hall = banquets.find(
+                                    (h: Banquet) =>
+                                      h.id === selectedBanquetHall,
+                                  );
+                                  if (hall && attendeeCount > hall.capacity) {
+                                    return (
+                                      <span className="block mt-1 text-amber-900 font-medium">
+                                        ⚠️ Attendee count exceeds hall capacity!
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Catering F&B Section */}
+              {catering.length > 0 && (
+                <div className="space-y-6 mt-8">
+                  <h2 className="text-xl font-bold text-neutral-900">
+                    Catering & F&B
+                  </h2>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left: Display Shared Info */}
+                    <div className="lg:col-span-1 space-y-4">
+                      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+                        <h3 className="font-semibold text-neutral-900 mb-4">
+                          Event Details
+                        </h3>
+                        <div className="space-y-3">
+                          <div>
+                            <div className="text-sm text-neutral-500">
+                              Attendees
+                            </div>
+                            <div className="text-2xl font-bold text-neutral-900">
+                              {attendeeCount}
+                            </div>
+                          </div>
+                          <div className="border-t border-neutral-200 pt-3">
+                            <div className="text-sm text-neutral-500 mb-2">
+                              Event Date
+                            </div>
+                            <div
+                              className={`text-sm font-medium ${eventDate ? "text-neutral-900" : "text-neutral-400"}`}
+                            >
+                              {eventDate
+                                ? new Date(eventDate).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      weekday: "short",
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    },
+                                  )
+                                : "Not selected"}
+                            </div>
+                          </div>
+                          <div className="border-t border-neutral-200 pt-3">
+                            <div className="text-sm text-neutral-500 mb-2">
+                              Duration
+                            </div>
+                            <div
+                              className={`text-sm font-medium ${selectedTimeSlot ? "text-neutral-900" : "text-neutral-400"}`}
+                            >
+                              {selectedTimeSlot || "Not selected"}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-neutral-500 mt-4 italic">
+                          Same as banquet configuration
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right: Meal Plans */}
+                    <div className="lg:col-span-2">
+                      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                        <div className="bg-neutral-50 px-6 py-3 border-b border-neutral-200 font-semibold text-neutral-700">
+                          Select Meal Plan
+                        </div>
+                        <div className="p-6 space-y-4">
+                          {catering.map((plan: Catering) => (
+                            <label
+                              key={plan.id}
+                              className={`block p-4 border rounded-xl cursor-pointer transition-all ${
+                                selectedMealPlan === plan.id
+                                  ? "border-emerald-500 bg-emerald-50"
+                                  : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <input
+                                    type="radio"
+                                    name="mealPlan"
+                                    checked={selectedMealPlan === plan.id}
+                                    onChange={() =>
+                                      setSelectedMealPlan(plan.id)
+                                    }
+                                    className="mt-1 w-4 h-4 text-emerald-600"
+                                  />
+                                  <div className="flex-1">
+                                    <h4
+                                      className={`font-semibold ${selectedMealPlan === plan.id ? "text-emerald-900" : "text-neutral-900"}`}
+                                    >
+                                      {plan.name}
+                                    </h4>
+                                    <p className="text-sm text-neutral-600 mt-1">
+                                      {plan.description}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                      {plan.menuHighlights.map(
+                                        (item: string) => (
+                                          <span
+                                            key={item}
+                                            className={`px-2 py-1 rounded-full text-xs ${
+                                              selectedMealPlan === plan.id
+                                                ? "bg-emerald-100 text-emerald-700"
+                                                : "bg-neutral-100 text-neutral-600"
+                                            }`}
+                                          >
+                                            {item}
+                                          </span>
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right ml-4">
+                                  <div
+                                    className={`font-bold text-lg ${selectedMealPlan === plan.id ? "text-emerald-600" : "text-neutral-900"}`}
+                                  >
+                                    ₹
+                                    {(
+                                      plan.pricePerPerson || 0
+                                    ).toLocaleString()}
+                                  </div>
+                                  <div className="text-xs text-neutral-500">
+                                    per person
+                                  </div>
+                                </div>
+                              </div>
                             </label>
                           ))}
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Right: Hall Types */}
-                  <div className="lg:col-span-2">
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                      <div className="bg-neutral-50 px-6 py-3 border-b border-neutral-200 font-semibold text-neutral-700">
-                        Available Banquet Halls
-                      </div>
-                      <div className="p-6 space-y-4">
-                        {banquets.map((hall: Banquet) => (
-                          <label
-                            key={hall.id}
-                            className={`block p-4 border rounded-xl cursor-pointer transition-all ${
-                              selectedBanquetHall === hall.id
-                                ? "border-blue-500 bg-blue-50"
-                                : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start gap-3 flex-1">
-                                <input
-                                  type="radio"
-                                  name="banquetHall"
-                                  checked={selectedBanquetHall === hall.id}
-                                  onChange={() =>
-                                    setSelectedBanquetHall(hall.id)
-                                  }
-                                  className="mt-1 w-4 h-4 text-blue-600"
-                                />
-                                <div className="flex-1">
-                                  <h4
-                                    className={`font-semibold ${selectedBanquetHall === hall.id ? "text-blue-900" : "text-neutral-900"}`}
-                                  >
-                                    {hall.name}
-                                  </h4>
-                                  <p className="text-sm text-neutral-600 mt-1">
-                                    Capacity: Up to {hall.capacity} people
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-3">
-                                    {hall.facilities.map((facility: string) => (
-                                      <span
-                                        key={facility}
-                                        className={`px-2 py-1 rounded-full text-xs ${
-                                          selectedBanquetHall === hall.id
-                                            ? "bg-blue-100 text-blue-700"
-                                            : "bg-neutral-100 text-neutral-600"
-                                        }`}
-                                      >
-                                        {facility}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right ml-4">
-                                <div
-                                  className={`font-bold text-lg ${selectedBanquetHall === hall.id ? "text-blue-600" : "text-neutral-900"}`}
-                                >
-                                  ₹{(hall.pricePerSlot || 0).toLocaleString()}
-                                </div>
-                                <div className="text-xs text-neutral-500">
-                                  per slot
-                                </div>
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                        {attendeeCount > 0 && selectedBanquetHall && (
-                          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                            <p className="text-sm text-amber-800">
-                              <strong>Note:</strong> Selected hall capacity
-                              should accommodate {attendeeCount} attendees.
-                              {(() => {
-                                const hall = banquets.find(
-                                  (h: Banquet) => h.id === selectedBanquetHall,
-                                );
-                                if (hall && attendeeCount > hall.capacity) {
-                                  return (
-                                    <span className="block mt-1 text-amber-900 font-medium">
-                                      ⚠️ Attendee count exceeds hall capacity!
-                                    </span>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 </div>
-              </div>
-
-              {/* Catering F&B Section */}
-              <div className="space-y-6 mt-8">
-                <h2 className="text-xl font-bold text-neutral-900">
-                  Catering & F&B
-                </h2>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left: Display Shared Info */}
-                  <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-                      <h3 className="font-semibold text-neutral-900 mb-4">
-                        Event Details
-                      </h3>
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-sm text-neutral-500">
-                            Attendees
-                          </div>
-                          <div className="text-2xl font-bold text-neutral-900">
-                            {attendeeCount}
-                          </div>
-                        </div>
-                        <div className="border-t border-neutral-200 pt-3">
-                          <div className="text-sm text-neutral-500 mb-2">
-                            Event Date
-                          </div>
-                          <div
-                            className={`text-sm font-medium ${eventDate ? "text-neutral-900" : "text-neutral-400"}`}
-                          >
-                            {eventDate
-                              ? new Date(eventDate).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    weekday: "short",
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  },
-                                )
-                              : "Not selected"}
-                          </div>
-                        </div>
-                        <div className="border-t border-neutral-200 pt-3">
-                          <div className="text-sm text-neutral-500 mb-2">
-                            Duration
-                          </div>
-                          <div
-                            className={`text-sm font-medium ${selectedTimeSlot ? "text-neutral-900" : "text-neutral-400"}`}
-                          >
-                            {selectedTimeSlot || "Not selected"}
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-xs text-neutral-500 mt-4 italic">
-                        Same as banquet configuration
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right: Meal Plans */}
-                  <div className="lg:col-span-2">
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                      <div className="bg-neutral-50 px-6 py-3 border-b border-neutral-200 font-semibold text-neutral-700">
-                        Select Meal Plan
-                      </div>
-                      <div className="p-6 space-y-4">
-                        {catering.map((plan: Catering) => (
-                          <label
-                            key={plan.id}
-                            className={`block p-4 border rounded-xl cursor-pointer transition-all ${
-                              selectedMealPlan === plan.id
-                                ? "border-emerald-500 bg-emerald-50"
-                                : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start gap-3 flex-1">
-                                <input
-                                  type="radio"
-                                  name="mealPlan"
-                                  checked={selectedMealPlan === plan.id}
-                                  onChange={() => setSelectedMealPlan(plan.id)}
-                                  className="mt-1 w-4 h-4 text-emerald-600"
-                                />
-                                <div className="flex-1">
-                                  <h4
-                                    className={`font-semibold ${selectedMealPlan === plan.id ? "text-emerald-900" : "text-neutral-900"}`}
-                                  >
-                                    {plan.name}
-                                  </h4>
-                                  <p className="text-sm text-neutral-600 mt-1">
-                                    {plan.description}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-3">
-                                    {plan.menuHighlights.map((item: string) => (
-                                      <span
-                                        key={item}
-                                        className={`px-2 py-1 rounded-full text-xs ${
-                                          selectedMealPlan === plan.id
-                                            ? "bg-emerald-100 text-emerald-700"
-                                            : "bg-neutral-100 text-neutral-600"
-                                        }`}
-                                      >
-                                        {item}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right ml-4">
-                                <div
-                                  className={`font-bold text-lg ${selectedMealPlan === plan.id ? "text-emerald-600" : "text-neutral-900"}`}
-                                >
-                                  ₹{(plan.pricePerPerson || 0).toLocaleString()}
-                                </div>
-                                <div className="text-xs text-neutral-500">
-                                  per person
-                                </div>
-                                {selectedMealPlan === plan.id &&
-                                  attendeeCount > 0 && (
-                                    <div className="text-sm font-medium text-emerald-700 mt-1">
-                                      Total: ₹
-                                      {(
-                                        (plan.pricePerPerson || 0) *
-                                        attendeeCount
-                                      ).toLocaleString()}
-                                    </div>
-                                  )}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* RIGHT: Booking Summary (Sticky) */}
@@ -957,18 +989,33 @@ export default function HotelDetailsPage() {
                   </div>
 
                   <button
-                    onClick={handleSaveMapping}
-                    disabled={totalAmount === 0}
-                    className={`w-full mt-6 py-3.5 rounded-lg font-bold text-white transition-all transform active:scale-95 ${
-                      totalAmount === 0
+                    onClick={handleAddToCart}
+                    disabled={totalAmount === 0 || isAddingToCart}
+                    className={`w-full mt-6 py-3.5 rounded-lg font-bold text-white transition-all transform active:scale-95 flex items-center justify-center gap-2 ${
+                      totalAmount === 0 || isAddingToCart
                         ? "bg-neutral-300 cursor-not-allowed shadow-none"
                         : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-200"
                     }`}
                   >
-                    Save Mapping & Continue
+                    {isAddingToCart ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            repeat: Infinity,
+                            duration: 1,
+                            ease: "linear",
+                          }}
+                          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                        />
+                        <span>Adding to Cart...</span>
+                      </>
+                    ) : (
+                      <span>Add to Cart & Continue</span>
+                    )}
                   </button>
                   <p className="text-xs text-center text-neutral-400 mt-3">
-                    You can review the mapping in the next step.
+                    Your selections will be saved to your event cart.
                   </p>
                 </div>
               </div>
