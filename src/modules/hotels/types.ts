@@ -11,6 +11,7 @@ export interface Hotel {
     type: string;
     discount?: number;
     occupancy: number;
+    primary_room_offer_id?: string;
 }
 
 export interface RoomType {

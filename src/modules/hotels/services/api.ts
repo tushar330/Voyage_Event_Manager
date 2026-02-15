@@ -17,18 +17,19 @@ export const hotelApi = {
         // Map backend PascalCase to camelCase
         const hotelsList = result.data || [];
         return hotelsList.map((h: any) => ({
-            id: h.ID || h.id || h.hotel_code,
-            name: h.Name || h.name,
-            location: h.Address || h.location,
-            amenities: h.Facilities || h.amenities || [],
-            stars: h.StarRating || h.stars || 0,
-            image: (h.ImageUrls && h.ImageUrls[0]) || h.image || '',
-            occupancy: h.Occupancy || h.occupancy || 0,
+            id: h.id || h.hotel_code,
+            name: h.name,
+            location: h.address || h.location,
+            amenities: h.facilities || h.amenities || [],
+            stars: h.star_rating || h.stars || 0,
+            image: (h.image_urls && h.image_urls[0]) || h.image || '',
+            occupancy: h.occupancy || 0,
             // Fallbacks for missing fields in basic list
-            price: h.Price || h.price || 0,
-            rating: h.Rating || h.rating || 4.5,
-            description: h.Description || h.description || '',
-            type: h.Type || h.type || 'Hotel'
+            price: h.price || 0,
+            rating: h.rating || 4.5,
+            description: h.description || '',
+            primary_room_offer_id: (h.rooms && h.rooms.length > 0) ? h.rooms[0].id : null,
+            type: h.type || 'Hotel'
         }));
     },
 
@@ -40,18 +41,21 @@ export const hotelApi = {
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         const response = await fetch(`/api/hotels/${hotelCode}/rooms`, { headers });
-        if (!response.ok) throw new Error('Failed to fetch rooms');
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch rooms for hotel ${hotelCode}: ${response.status} ${errorText}`);
+        }
         const result = await response.json();
 
         const roomsList = result.data || result || [];
         return (Array.isArray(roomsList) ? roomsList : []).map((r: any) => ({
-            id: r.ID || r.id,
-            hotelId: r.HotelID || r.hotelId || hotelCode,
-            name: r.Name || r.name,
-            price: r.TotalFare || r.price || 0,
-            capacity: r.MaxCapacity || r.capacity || 0,
-            inventory: r.Count || r.inventory || 0,
-            description: r.Description || r.description || ''
+            id: r.id,
+            hotelId: r.hotel_id || r.hotelId || hotelCode,
+            name: r.name,
+            price: r.total_fare || r.price || 0,
+            capacity: r.max_capacity || r.capacity || 0,
+            inventory: r.count || r.inventory || 0,
+            description: r.description || ''
         }));
     },
 
@@ -68,11 +72,11 @@ export const hotelApi = {
 
         const banquetsList = result.data || result || [];
         return (Array.isArray(banquetsList) ? banquetsList : []).map((b: any) => ({
-            id: b.ID || b.id,
-            name: b.Name || b.name,
-            capacity: b.Capacity || b.capacity || 0,
-            pricePerSlot: b.PricePerDay || b.pricePerSlot || 0,
-            facilities: b.Facilities || b.facilities || []
+            id: b.id,
+            name: b.name,
+            capacity: b.capacity || 0,
+            pricePerSlot: b.price_per_day || b.pricePerSlot || 0,
+            facilities: b.facilities || []
         }));
     },
 
@@ -89,11 +93,11 @@ export const hotelApi = {
 
         const cateringList = result.data || result || [];
         return (Array.isArray(cateringList) ? cateringList : []).map((c: any) => ({
-            id: c.ID || c.id,
-            name: c.Name || c.name,
-            description: c.Type || c.description || '', // Mapping Type to description since backend keeps it simple
-            pricePerPerson: c.PricePerPlate || c.pricePerPerson || 0,
-            menuHighlights: c.MenuHighlights || c.menuHighlights || []
+            id: c.id,
+            name: c.name,
+            description: c.type || c.description || '', // Mapping Type to description since backend keeps it simple
+            pricePerPerson: c.price_per_plate || c.pricePerPerson || 0,
+            menuHighlights: c.menu_highlights || c.menuHighlights || []
         }));
     }
 };
