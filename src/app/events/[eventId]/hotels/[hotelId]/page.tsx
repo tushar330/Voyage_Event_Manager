@@ -14,11 +14,13 @@ const TIME_SLOTS = [
 ];
 
 import { useAuth } from "@/context/AuthContext";
+import { useEvents } from "@/context/EventContext";
 
 export default function HotelDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { token } = useAuth();
+  const { updateEvent } = useEvents();
   const hotelId = params.hotelId as string;
   const eventId = params.eventId as string;
 
@@ -36,7 +38,7 @@ export default function HotelDetailsPage() {
     triple: 0,
     quad: 0,
   });
-  
+
   useEffect(() => {
     const savedDemand = localStorage.getItem(`demand_${eventId}`);
     if (savedDemand) {
@@ -81,12 +83,16 @@ export default function HotelDetailsPage() {
   const REQUIREMENTS = requirements;
 
   // State for selected rooms: { [roomId]: quantity }
-  const [selectedRooms, setSelectedRooms] = useState<Record<string, number>>({});
+  const [selectedRooms, setSelectedRooms] = useState<Record<string, number>>(
+    {},
+  );
 
   // State for banquet and catering
   const [attendeeCount, setAttendeeCount] = useState(100);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
-  const [selectedBanquetHall, setSelectedBanquetHall] = useState<number | null>(null);
+  const [selectedBanquetHall, setSelectedBanquetHall] = useState<number | null>(
+    null,
+  );
   const [selectedMealPlan, setSelectedMealPlan] = useState<number | null>(null);
   const [eventDate, setEventDate] = useState<string>("");
   const [eventTime, setEventTime] = useState<string>("");
@@ -107,8 +113,6 @@ export default function HotelDetailsPage() {
       </div>
     );
   }
-
-
 
   // --- Helpers ---
 
@@ -157,8 +161,23 @@ export default function HotelDetailsPage() {
   const taxes = calculateTaxes(subtotal);
   const totalAmount = subtotal + taxes;
 
-  const handleSaveMapping = () => {
+  const handleSaveMapping = async () => {
     if (!hotel) return;
+
+    // Transform selectedRooms to roomsInventory payload
+    const roomsInventoryPayload = Object.entries(selectedRooms)
+      .filter(([_, qty]) => qty > 0)
+      .map(([roomId, qty]) => {
+        const room = rooms.find((r) => r.id === roomId);
+        return {
+          room_offer_id: roomId,
+          room_name: room?.name || "Unknown Room",
+          available: qty,
+          max_capacity: room?.capacity || 0,
+          price_per_room: room?.price || 0,
+        };
+      });
+
     const mappingData = {
       hotelId: hotel.id,
       hotelName: hotel.name,
@@ -167,10 +186,21 @@ export default function HotelDetailsPage() {
       timestamp: new Date().toISOString(),
     };
 
-    localStorage.setItem(`mapping_${eventId}`, JSON.stringify(mappingData));
+    try {
+      // Send update request to backend
+      await updateEvent(eventId, {
+        roomsInventory: roomsInventoryPayload,
+      });
 
-    console.log("Saving Mapping:", mappingData);
-    router.push(`/events/${eventId}/room-mapping`);
+      // Also save to local storage for backward compatibility / backup
+      localStorage.setItem(`mapping_${eventId}`, JSON.stringify(mappingData));
+
+      console.log("Saving Mapping:", mappingData);
+      router.push(`/events/${eventId}/room-mapping`);
+    } catch (err) {
+      console.error("Failed to save mapping:", err);
+      // Optional: Show error to user
+    }
   };
 
   // --- UI Components ---

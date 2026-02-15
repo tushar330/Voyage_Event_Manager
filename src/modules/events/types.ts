@@ -3,6 +3,14 @@
  * Migrated from lib/types.ts
  */
 
+export interface RoomInventoryItem {
+    room_offer_id: string;
+    room_name: string;
+    available: number;
+    max_capacity: number;
+    price_per_room: number;
+}
+
 export interface Event {
     id: string;
     name: string;
@@ -15,6 +23,7 @@ export interface Event {
     inventoryConsumed: number;
     status: 'active' | 'upcoming' | 'completed';
     headGuestId?: string;
+    roomsInventory?: RoomInventoryItem[];
 }
 
 export interface HeadGuest {
