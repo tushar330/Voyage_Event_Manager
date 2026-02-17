@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useHotelDiscovery } from "@/modules/hotels/hooks/useHotelDiscovery";
-import { Hotel } from "@/modules/hotels/types";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { cartApi } from "@/modules/cart/services/api";
+import { Hotel, HotelFilters, LocalFilterState, DEFAULT_FILTERS } from "@/modules/hotels/types";
 import { useAuth } from "@/context/AuthContext";
 import { Toaster, toast } from "sonner";
 import { useCart } from "@/context/CartContext";
+import FilterPanel, { countActiveFilters } from "@/modules/hotels/components/FilterPanel";
+import MobileFilterDrawer from "@/modules/hotels/components/MobileFilterDrawer";
 
 import { useEffect } from "react";
 
@@ -18,8 +18,8 @@ import { useEffect } from "react";
 const SearchBar = ({ onSearch }: { onSearch: (query: string) => void }) => {
   return (
     <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 rounded-xl shadow-lg mb-8 text-white">
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-4 relative">
+      <div className="flex gap-4">
+        <div className="flex-1 relative">
           <label className="block text-xs uppercase font-bold text-blue-200 mb-1">
             City, Hotel, or Area
           </label>
@@ -45,162 +45,10 @@ const SearchBar = ({ onSearch }: { onSearch: (query: string) => void }) => {
             </svg>
           </div>
         </div>
-        <div className="md:col-span-3">
-          <label className="block text-xs uppercase font-bold text-blue-200 mb-1">
-            Check-in
-          </label>
-          <input
-            type="date"
-            className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:bg-white/20"
-          />
-        </div>
-        <div className="md:col-span-3">
-          <label className="block text-xs uppercase font-bold text-blue-200 mb-1">
-            Check-out
-          </label>
-          <input
-            type="date"
-            className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:bg-white/20"
-          />
-        </div>
-        <div className="md:col-span-2 flex items-end">
-          <button className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold rounded-lg shadow-md transition-all transform hover:scale-[1.02]">
+        <div className="flex items-end">
+          <button className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold rounded-lg shadow-md transition-all transform hover:scale-[1.02]">
             Search
           </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const FilterPanel = ({
-  filters,
-  setFilters,
-}: {
-  filters: any;
-  setFilters: any;
-}) => {
-  const amenitiesList = ["WiFi", "Pool", "Parking", "Breakfast", "AC", "Spa"];
-  const typesList = ["Hotel", "Resort", "Guest House"];
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 sticky top-24 h-fit">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="font-bold text-neutral-900 text-lg">Filters</h3>
-        <button
-          onClick={() =>
-            setFilters({
-              priceRange: [0, 20000],
-              stars: [],
-              amenities: [],
-              type: [],
-            })
-          }
-          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-        >
-          Clear All
-        </button>
-      </div>
-
-      {/* Price Range */}
-      <div className="mb-8">
-        <h4 className="font-semibold text-neutral-800 mb-3">Price Range</h4>
-        <input
-          type="range"
-          min="0"
-          max="20000"
-          step="500"
-          value={filters.priceRange[1]}
-          onChange={(e) =>
-            setFilters({ ...filters, priceRange: [0, Number(e.target.value)] })
-          }
-          className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-        />
-        <div className="flex justify-between text-sm text-neutral-600 mt-2">
-          <span>₹0</span>
-          <span>₹{filters.priceRange[1].toLocaleString()}</span>
-        </div>
-      </div>
-
-      {/* Star Rating */}
-      <div className="mb-8">
-        <h4 className="font-semibold text-neutral-800 mb-3">Star Rating</h4>
-        <div className="space-y-2">
-          {[5, 4, 3, 2].map((star) => (
-            <label
-              key={star}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
-              <input
-                type="checkbox"
-                checked={filters.stars.includes(star)}
-                onChange={(e) => {
-                  const newStars = e.target.checked
-                    ? [...filters.stars, star]
-                    : filters.stars.filter((s: number) => s !== star);
-                  setFilters({ ...filters, stars: newStars });
-                }}
-                className="w-4 h-4 text-blue-600 rounded border-neutral-300 focus:ring-blue-500"
-              />
-              <div className="flex text-amber-400">
-                {[...Array(star)].map((_, i) => (
-                  <span key={i}>★</span>
-                ))}
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Property Type */}
-      <div className="mb-8">
-        <h4 className="font-semibold text-neutral-800 mb-3">Property Type</h4>
-        <div className="space-y-2">
-          {typesList.map((type) => (
-            <label
-              key={type}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={filters.type.includes(type)}
-                onChange={(e) => {
-                  const newTypes = e.target.checked
-                    ? [...filters.type, type]
-                    : filters.type.filter((t: string) => t !== type);
-                  setFilters({ ...filters, type: newTypes });
-                }}
-                className="w-4 h-4 text-blue-600 rounded border-neutral-300 focus:ring-blue-500"
-              />
-              <span className="text-neutral-600 text-sm">{type}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Amenities */}
-      <div>
-        <h4 className="font-semibold text-neutral-800 mb-3">Amenities</h4>
-        <div className="space-y-2">
-          {amenitiesList.map((item) => (
-            <label
-              key={item}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={filters.amenities.includes(item)}
-                onChange={(e) => {
-                  const newAmenities = e.target.checked
-                    ? [...filters.amenities, item]
-                    : filters.amenities.filter((a: string) => a !== item);
-                  setFilters({ ...filters, amenities: newAmenities });
-                }}
-                className="w-4 h-4 text-blue-600 rounded border-neutral-300 focus:ring-blue-500"
-              />
-              <span className="text-neutral-600 text-sm">{item}</span>
-            </label>
-          ))}
         </div>
       </div>
     </div>
@@ -288,7 +136,111 @@ const RoomClusterSelector = ({
   );
 };
 
-// --- Room Cluster Component ---
+// --- Quick Filter Pills (horizontal strip above results) ---
+const QuickFilterStrip = ({
+  filters,
+  setFilters,
+}: {
+  filters: LocalFilterState;
+  setFilters: (f: LocalFilterState) => void;
+}) => {
+  const quickFilters = [
+    {
+      label: "Free Cancellation",
+      active: filters.freeCancellation,
+      toggle: () => setFilters({ ...filters, freeCancellation: !filters.freeCancellation }),
+    },
+    {
+      label: "5★ Hotels",
+      active: filters.stars.includes(5),
+      toggle: () =>
+        setFilters({
+          ...filters,
+          stars: filters.stars.includes(5)
+            ? filters.stars.filter((s) => s !== 5)
+            : [...filters.stars, 5],
+        }),
+    },
+    {
+      label: "4★ & Above",
+      active: filters.stars.includes(4) && filters.stars.includes(5),
+      toggle: () => {
+        const has4and5 = filters.stars.includes(4) && filters.stars.includes(5);
+        setFilters({
+          ...filters,
+          stars: has4and5
+            ? filters.stars.filter((s) => s !== 4 && s !== 5)
+            : [...new Set([...filters.stars, 4, 5])],
+        });
+      },
+    },
+    {
+      label: "8+ Rating",
+      active: filters.minRating === 8,
+      toggle: () =>
+        setFilters({ ...filters, minRating: filters.minRating === 8 ? null : 8 }),
+    },
+    {
+      label: "Breakfast",
+      active: filters.mealPlan.includes("Breakfast Included"),
+      toggle: () =>
+        setFilters({
+          ...filters,
+          mealPlan: filters.mealPlan.includes("Breakfast Included")
+            ? filters.mealPlan.filter((m) => m !== "Breakfast Included")
+            : [...filters.mealPlan, "Breakfast Included"],
+        }),
+    },
+    {
+      label: "Pool",
+      active: filters.amenities.includes("Pool"),
+      toggle: () =>
+        setFilters({
+          ...filters,
+          amenities: filters.amenities.includes("Pool")
+            ? filters.amenities.filter((a) => a !== "Pool")
+            : [...filters.amenities, "Pool"],
+        }),
+    },
+    {
+      label: "WiFi",
+      active: filters.amenities.includes("WiFi"),
+      toggle: () =>
+        setFilters({
+          ...filters,
+          amenities: filters.amenities.includes("WiFi")
+            ? filters.amenities.filter((a) => a !== "WiFi")
+            : [...filters.amenities, "WiFi"],
+        }),
+    },
+    {
+      label: "Pet Friendly",
+      active: filters.petFriendly,
+      toggle: () => setFilters({ ...filters, petFriendly: !filters.petFriendly }),
+    },
+  ];
+
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4 -mx-1 px-1">
+      {quickFilters.map((qf) => (
+        <button
+          key={qf.label}
+          onClick={qf.toggle}
+          className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-medium border transition-all duration-150 flex-shrink-0 ${
+            qf.active
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/20"
+              : "bg-white text-neutral-600 border-neutral-200 hover:border-blue-300 hover:text-blue-600"
+          }`}
+        >
+          {qf.active && (
+            <span className="mr-1">✓</span>
+          )}
+          {qf.label}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 // --- Page Component ---
 
@@ -297,23 +249,12 @@ export default function HotelListingPage() {
   const router = useRouter();
   const eventId = params.eventId as string;
 
-  const {
-    hotels: discoveredHotels,
-    loading,
-    error,
-    event,
-  } = useHotelDiscovery({ eventId });
-
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState({
-    priceRange: [0, 20000],
-    stars: [] as number[],
-    amenities: [] as string[],
-    type: [] as string[],
-  });
+  const [filters, setFilters] = useState<LocalFilterState>(DEFAULT_FILTERS);
   const [sortOption, setSortOption] = useState<
     "price_low" | "price_high" | "rating" | "popularity"
   >("popularity");
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const [roomClusters, setRoomClusters] = useState<RoomCluster[]>([
     { id: "single", label: "Single", occupants: 1, count: 5 },
@@ -322,8 +263,40 @@ export default function HotelListingPage() {
     { id: "quad", label: "Quad", occupants: 4, count: 0 },
   ]);
 
+  // Derive backend HotelFilters from room cluster selections
+  const roomFilters = useMemo<HotelFilters>(() => {
+    const f: HotelFilters = {};
+    roomClusters.forEach((c) => {
+      if (c.count > 0) {
+        if (c.id === "single") f.rooms_single = c.count;
+        if (c.id === "double") f.rooms_double = c.count;
+        if (c.id === "triple") f.rooms_triple = c.count;
+        if (c.id === "quad") f.rooms_quad = c.count;
+      }
+    });
+    return f;
+  }, [roomClusters]);
+
+  // Auto-persist room demand to localStorage for hotel details page
+  useEffect(() => {
+    const demand = roomClusters.reduce(
+      (acc, cluster) => {
+        acc[cluster.id] = cluster.count;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+    localStorage.setItem(`demand_${eventId}`, JSON.stringify(demand));
+  }, [roomClusters, eventId]);
+
+  const {
+    hotels: discoveredHotels,
+    loading,
+    error,
+    event,
+  } = useHotelDiscovery({ eventId, filters: roomFilters });
+
   const { token } = useAuth();
-  const queryClient = useQueryClient();
   const { cart, fetchCart, addToCart, removeFromCart } = useCart();
 
   useEffect(() => {
@@ -339,13 +312,10 @@ export default function HotelListingPage() {
       .map((h) => h.hotel_details?.id || "");
   }, [cart]);
 
-  // Wishlist Mutation (Deprecated - using CartContext now)
-
   const toggleWishlist = async (hotel: Hotel, e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (wishlistIds.includes(hotel.id)) {
-      // Find the cart item ID for this hotel wishlist item
       const hotelGroup = cart?.hotels.find(
         (h) => h.hotel_details?.id === hotel.id,
       );
@@ -363,6 +333,7 @@ export default function HotelListingPage() {
           type: "hotel",
           refId: hotel.id,
           quantity: 1,
+          status: "wishlist"
         });
         toast.success("Added to wishlist!");
       } catch (err: any) {
@@ -371,7 +342,7 @@ export default function HotelListingPage() {
     }
   };
 
-  // Filter & Sort Logic
+  // Filter & Sort Logic — all client-side filters
   const filteredHotels = useMemo(() => {
     return discoveredHotels
       .filter((hotel: Hotel) => {
@@ -392,6 +363,10 @@ export default function HotelListingPage() {
         if (filters.stars.length > 0 && !filters.stars.includes(hotel.stars))
           return false;
 
+        // Min Rating
+        if (filters.minRating !== null && (hotel.rating || 0) < filters.minRating)
+          return false;
+
         // Type
         if (filters.type.length > 0 && !filters.type.includes(hotel.type))
           return false;
@@ -399,9 +374,62 @@ export default function HotelListingPage() {
         // Amenities (Check if hotel has ALL selected amenities)
         if (filters.amenities.length > 0) {
           const hasAllAmenities = filters.amenities.every((a: string) =>
-            hotel.amenities?.includes(a),
+            hotel.amenities?.some(
+              (ha) => ha.toLowerCase() === a.toLowerCase()
+            ),
           );
           if (!hasAllAmenities) return false;
+        }
+
+        // Free Cancellation — filter on amenities containing "Free Cancellation" or "Cancellation"
+        if (filters.freeCancellation) {
+          const hasFreeCancel = hotel.amenities?.some(
+            (a) => a.toLowerCase().includes("free cancellation") || a.toLowerCase().includes("cancellation")
+          );
+          if (!hasFreeCancel) return false;
+        }
+
+        // Meal Plan — filter on amenities
+        if (filters.mealPlan.length > 0) {
+          const hasAnyMeal = filters.mealPlan.some((mp) =>
+            hotel.amenities?.some(
+              (a) => a.toLowerCase().includes(mp.toLowerCase().split(" ")[0])
+            ),
+          );
+          if (!hasAnyMeal) return false;
+        }
+
+        // Pet Friendly — filter on amenities
+        if (filters.petFriendly) {
+          const isPetFriendly = hotel.amenities?.some(
+            (a) => a.toLowerCase().includes("pet")
+          );
+          if (!isPetFriendly) return false;
+        }
+
+        // Venue Setting — filter on amenities/type containing venue keywords
+        if (filters.venueSetting.length > 0) {
+          const hasVenue = filters.venueSetting.some((vs) =>
+            hotel.amenities?.some(
+              (a) => a.toLowerCase().includes(vs.toLowerCase())
+            ),
+          );
+          if (!hasVenue) return false;
+        }
+
+        // Food Type — filter on amenities
+        if (filters.foodType.length > 0) {
+          const hasFood = filters.foodType.some((ft) =>
+            hotel.amenities?.some(
+              (a) => a.toLowerCase().includes(ft.toLowerCase())
+            ),
+          );
+          if (!hasFood) return false;
+        }
+
+        // Guest Capacity — filter on occupancy
+        if (filters.guestCapacity !== null) {
+          if ((hotel.occupancy || 0) < filters.guestCapacity) return false;
         }
 
         return true;
@@ -415,13 +443,12 @@ export default function HotelListingPage() {
           case "rating":
             return (b.rating || 0) - (a.rating || 0);
           default:
-            return (b.rating || 0) - (a.rating || 0); // Popularity fallback
+            return (b.rating || 0) - (a.rating || 0);
         }
       });
   }, [discoveredHotels, filters, searchQuery, sortOption]);
 
   const handleSelectHotel = (hotelId: string) => {
-    // Save current demand/clusters to localStorage for the details page
     const demand = roomClusters.reduce(
       (acc, cluster) => {
         acc[cluster.id] = cluster.count;
@@ -431,9 +458,10 @@ export default function HotelListingPage() {
     );
 
     localStorage.setItem(`demand_${eventId}`, JSON.stringify(demand));
-
     router.push(`/events/${eventId}/hotels/${hotelId}`);
   };
+
+  const activeFilterCount = countActiveFilters(filters);
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24 relative">
@@ -491,8 +519,11 @@ export default function HotelListingPage() {
         {/* Top Search */}
         <SearchBar onSearch={setSearchQuery} />
 
+        {/* Quick Filter Strip (visible on all sizes) */}
+        <QuickFilterStrip filters={filters} setFilters={setFilters} />
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Filters */}
+          {/* Left Filters (desktop only) */}
           <div className="hidden lg:block lg:col-span-1">
             <FilterPanel filters={filters} setFilters={setFilters} />
           </div>
@@ -501,9 +532,16 @@ export default function HotelListingPage() {
           <div className="lg:col-span-3 space-y-6">
             {/* Sort Bar */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex justify-between items-center">
-              <span className="font-semibold text-neutral-900">
-                {filteredHotels.length} Hotels Found
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-neutral-900">
+                  {filteredHotels.length} Hotels Found
+                </span>
+                {activeFilterCount > 0 && (
+                  <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium">
+                    {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"} applied
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-neutral-500">Sort by:</span>
                 <select
@@ -654,7 +692,13 @@ export default function HotelListingPage() {
                                 {hotel.rating}
                               </div>
                               <p className="text-xs text-neutral-500 mt-1">
-                                Excellent
+                                {hotel.rating >= 9
+                                  ? "Exceptional"
+                                  : hotel.rating >= 8
+                                    ? "Excellent"
+                                    : hotel.rating >= 7
+                                      ? "Very Good"
+                                      : "Good"}
                               </p>
                             </div>
                           </div>
@@ -695,25 +739,21 @@ export default function HotelListingPage() {
                       animate={{ opacity: 1 }}
                       className="text-center py-20 bg-white rounded-xl border border-neutral-200"
                     >
+                      <div className="text-5xl mb-4">🏨</div>
                       <h3 className="text-lg font-bold text-neutral-900">
-                        No hotels found
+                        No hotels match your filters
                       </h3>
-                      <p className="text-neutral-500">
+                      <p className="text-neutral-500 mt-1">
                         Try adjusting your filters or search query.
                       </p>
                       <button
                         onClick={() => {
-                          setFilters({
-                            priceRange: [0, 20000],
-                            stars: [],
-                            amenities: [],
-                            type: [],
-                          });
+                          setFilters(DEFAULT_FILTERS);
                           setSearchQuery("");
                         }}
-                        className="mt-4 text-blue-600 font-medium hover:underline"
+                        className="mt-4 px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
                       >
-                        Clear Filters
+                        Clear All Filters
                       </button>
                     </motion.div>
                   )}
@@ -723,6 +763,31 @@ export default function HotelListingPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Filter FAB */}
+      <button
+        onClick={() => setMobileFilterOpen(true)}
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 lg:hidden flex items-center gap-2 px-6 py-3.5 bg-blue-600 text-white font-semibold rounded-full shadow-xl shadow-blue-600/30 hover:bg-blue-700 transition-all active:scale-95"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        Filters
+        {activeFilterCount > 0 && (
+          <span className="bg-white text-blue-600 text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        isOpen={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        filters={filters}
+        setFilters={setFilters}
+        resultCount={filteredHotels.length}
+      />
     </div>
   );
 }

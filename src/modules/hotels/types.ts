@@ -14,14 +14,57 @@ export interface Hotel {
     primary_room_offer_id?: string;
 }
 
+export interface HotelFilters {
+    min_price?: number;
+    max_price?: number;
+    stars?: string; // Comma-separated string
+    amenities?: string; // Comma-separated string
+    rooms_single?: number;
+    rooms_double?: number;
+    rooms_triple?: number;
+    rooms_quad?: number;
+}
+
+export interface LocalFilterState {
+    priceRange: [number, number];
+    stars: number[];
+    minRating: number | null;
+    amenities: string[];
+    type: string[];
+    freeCancellation: boolean;
+    mealPlan: string[];
+    venueSetting: string[];
+    guestCapacity: number | null;
+    foodType: string[];
+    petFriendly: boolean;
+}
+
+export const DEFAULT_FILTERS: LocalFilterState = {
+    priceRange: [0, 50000],
+    stars: [],
+    minRating: null,
+    amenities: [],
+    type: [],
+    freeCancellation: false,
+    mealPlan: [],
+    venueSetting: [],
+    guestCapacity: null,
+    foodType: [],
+    petFriendly: false,
+};
+
 export interface RoomType {
-    id: string; // Changed to string (UUID)
+    id: string;
     hotelId: string;
     name: string;
     capacity: number;
     price: number;
     description?: string;
     inventory: number;
+    total_fare?: number;
+    max_capacity?: number;
+    count?: number;
+    amenities?: string[];
 }
 
 export interface RoomsInventory {

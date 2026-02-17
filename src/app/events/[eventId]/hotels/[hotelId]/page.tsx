@@ -421,7 +421,9 @@ export default function HotelDetailsPage() {
                   </h2>
                   <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
                     Event Needs: {REQUIREMENTS.single} Single,{" "}
-                    {REQUIREMENTS.double} Double
+                    {REQUIREMENTS.double} Double,{" "}
+                    {REQUIREMENTS.triple} Triple,{" "}
+                    {REQUIREMENTS.quad} Quad
                   </span>
                 </div>
 
@@ -513,7 +515,7 @@ export default function HotelDetailsPage() {
 
                         return (
                           <span
-                            className={`text-sm font-medium ${isMet ? "text-green-600" : "text-neutral-500"}`}
+                            className={`text-sm font-medium ${isMet ? "text-green-600" : "text-orange-600"}`}
                           >
                             {remaining}{" "}
                             {remaining === 1 ? "triple room" : "triple rooms"}{" "}

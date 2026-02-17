@@ -1,4 +1,4 @@
-import { Hotel, HotelDataWrapper, Banquet, Catering, RoomType } from '../types';
+import { Hotel, HotelDataWrapper, Banquet, Catering, RoomType, HotelFilters } from '../types';
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const API_URL = `${backendUrl}/api/v1`;
@@ -7,11 +7,24 @@ export const hotelApi = {
     /**
      * Fetch hotels for a specific city
      */
-    async getHotelsByCity(cityId: string, token?: string): Promise<Hotel[]> {
+    async getHotelsByCity(cityId: string, token?: string, filters?: HotelFilters): Promise<Hotel[]> {
         const headers: HeadersInit = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const response = await fetch(`/api/hotels?city_id=${cityId}`, { headers });
+        const params = new URLSearchParams({ city_id: cityId });
+
+        if (filters) {
+            if (filters.min_price !== undefined) params.append('min_price', filters.min_price.toString());
+            if (filters.max_price !== undefined) params.append('max_price', filters.max_price.toString());
+            if (filters.stars) params.append('stars', filters.stars);
+            if (filters.amenities) params.append('amenities', filters.amenities);
+            if (filters.rooms_single) params.append('rooms_single', filters.rooms_single.toString());
+            if (filters.rooms_double) params.append('rooms_double', filters.rooms_double.toString());
+            if (filters.rooms_triple) params.append('rooms_triple', filters.rooms_triple.toString());
+            if (filters.rooms_quad) params.append('rooms_quad', filters.rooms_quad.toString());
+        }
+
+        const response = await fetch(`/api/hotels?${params.toString()}`, { headers });
         if (!response.ok) throw new Error('Failed to fetch hotels');
         const result = await response.json();
 
