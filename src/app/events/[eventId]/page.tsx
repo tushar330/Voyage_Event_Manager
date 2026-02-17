@@ -351,7 +351,10 @@ export default function EventDashboardPage() {
             </div>
 
             {/* Transfer Section (Non-functional) */}
-            <div className="card p-6 hover:shadow-md transition-all cursor-pointer group text-left">
+            <Link
+              href={`/events/${eventId}/transfers`}
+              className="card p-6 hover:shadow-md transition-all cursor-pointer group text-left"
+            >
               <div className="flex items-start justify-between mb-4">
                 <span className="p-2 rounded-lg bg-teal-50 text-teal-600">
                   <svg
@@ -370,12 +373,12 @@ export default function EventDashboardPage() {
                 </span>
               </div>
               <h3 className="text-lg font-semibold text-neutral-900 group-hover:text-corporate-blue-100 transition-colors">
-                Transfer
+                Transfer Services
               </h3>
               <p className="text-sm text-neutral-600 mt-1">
-                Airport pickups and drop-offs.
+                Airport pickups and cab bookings.
               </p>
-            </div>
+            </Link>
 
             {/* Rail Section (Non-functional) */}
             <div className="card p-6 hover:shadow-md transition-all cursor-pointer group text-left">

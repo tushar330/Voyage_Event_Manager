@@ -27,8 +27,15 @@ export default function CartPage() {
     }
   }, [eventId, fetchCart]);
 
+  // useEffect(() => {
+  //   if (cart) {
+  //       console.log("Cart Data:", cart);
+  //       toast.info(`Cart: H:${cart.hotels?.length || 0} F:${cart.flights?.length || 0} T:${cart.transfers?.length || 0}`);
+  //   }
+  // }, [cart]);
+
   const filteredData = useMemo(() => {
-    if (!cart) return { hotels: [], flights: [], total: 0 };
+    if (!cart) return { hotels: [], flights: [], transfers: [], total: 0 };
 
     const targetStatus =
       activeTab === "cart" ? ["cart", "approved", "booked"] : ["wishlist"];
@@ -75,6 +82,11 @@ export default function CartPage() {
       targetStatus.includes(i.status || "cart"),
     );
 
+    // Filter Transfers
+    const transfers = (cart.transfers || []).filter((i) =>
+      targetStatus.includes(i.status || "cart"),
+    );
+
     // Calculate Total
     let total = 0;
     hotels.forEach((group) => {
@@ -90,8 +102,11 @@ export default function CartPage() {
     flights.forEach((item) => {
       total += item.locked_price * item.quantity;
     });
+    transfers.forEach((item) => {
+      total += item.locked_price * item.quantity;
+    });
 
-    return { hotels, flights, total };
+    return { hotels, flights, transfers, total };
   }, [cart, activeTab]);
 
   const handleFinalize = async () => {
@@ -156,7 +171,9 @@ export default function CartPage() {
   }
 
   const isEmpty =
-    filteredData.hotels.length === 0 && filteredData.flights.length === 0;
+    filteredData.hotels.length === 0 &&
+    filteredData.flights.length === 0 &&
+    filteredData.transfers.length === 0;
 
   return (
     <div className="min-h-screen bg-neutral-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -379,6 +396,31 @@ export default function CartPage() {
                   </div>
                 </div>
               )}
+
+              {/* Transfers Group */}
+              {filteredData.transfers.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+                  <div className="p-4 bg-neutral-50 border-b border-neutral-200">
+                    <h4 className="font-bold text-neutral-900">Transfers</h4>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {filteredData.transfers.map((item) => (
+                      <CartItemRow
+                        key={item.id}
+                        item={item}
+                        activeTab={activeTab}
+                        onRemove={() => removeFromCart(eventId, item.id)}
+                        onUpdate={(qty) =>
+                          updateCartItem(eventId, item.id, { quantity: qty })
+                        }
+                        onMoveToCart={() =>
+                          updateCartItem(eventId, item.id, { status: "cart" })
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Price Summary Sidebar - Only for Cart */}
@@ -426,6 +468,28 @@ export default function CartPage() {
                       className="w-full py-3 bg-white border border-neutral-200 text-neutral-900 font-bold rounded-xl hover:bg-neutral-50 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                       Make Payment
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        router.push(`/events/${eventId}/negotiation`)
+                      }
+                      disabled={filteredData.total === 0}
+                      className="w-full py-3 bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-100 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <span>Start Negotiation</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902.848.137 1.705.248 2.57.331v3.443a.75.75 0 001.28.53l3.58-3.579a.78.78 0 01.527-.224 41.202 41.202 0 005.183-.5c1.437-.232 2.43-1.49 2.43-2.903V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2zm0 7a1 1 0 100-2 1 1 0 000 2zM8 8a1 1 0 11-2 0 1 1 0 012 0zm5 1a1 1 0 100-2 1 1 0 000 2z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
                     </button>
                   </div>
 
@@ -476,6 +540,8 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
         return "Flight Booking";
       case "hotel":
         return "Hotel Selection";
+      case "transfer":
+        return item.transfer_details?.car_model || "Transfer";
       default:
         return "Inventory Item";
     }
@@ -501,6 +567,8 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
           item.hotel_details?.image_urls?.[0] ||
           "/placeholder-hotel.jpg"
         );
+      case "transfer":
+         return "/placeholder-transfer.jpg";
       default:
         return "/placeholder-item.jpg";
     }

@@ -1,4 +1,4 @@
-export type CartItemType = 'room' | 'banquet' | 'catering' | 'flight' | 'hotel';
+export type CartItemType = 'room' | 'banquet' | 'catering' | 'flight' | 'hotel' | 'transfer';
 export type CartItemStatus = 'wishlist' | 'cart' | 'approved' | 'booked';
 
 export interface CartItem {
@@ -29,7 +29,8 @@ export interface CartItemDetail {
     room_details?: any;
     banquet_details?: any;
     catering_details?: any;
-    flight_details?: any;
+    flight_details?: any; // Should ideally be Flight from modules/flights/types
+    transfer_details?: any; // Should ideally be Transfer from modules/transfers/types
     hotel_details?: any;
 }
 
@@ -45,6 +46,7 @@ export interface CartResponse {
     event_id: string;
     hotels: HotelCartGroup[];
     flights: CartItemDetail[];
+    transfers: CartItemDetail[];
 }
 
 export interface AddToCartRequest {
