@@ -36,7 +36,7 @@ export default function PortalLayout({
             if (!token) return; // Wait for auth
 
             try {
-                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
                 // Fetch Event
                 const eventRes = await fetch(`${backendUrl}/api/v1/events/${eventId}`, {

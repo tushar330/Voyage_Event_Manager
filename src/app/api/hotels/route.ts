@@ -5,7 +5,7 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const cityId = searchParams.get('city_id');
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         let targetUrl = `${backendUrl}/api/v1/hotels`;
 
         if (cityId) {

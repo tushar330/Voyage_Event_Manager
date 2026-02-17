@@ -15,6 +15,7 @@ interface EventContextType {
   addEvent: (eventData: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, event: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
+  refreshEvents: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -28,7 +29,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const backendUrl =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+    process.env.NEXT_PUBLIC_BACKEND_URL;
 
   const fetchEvents = async () => {
     if (!token) return;
@@ -41,25 +42,27 @@ export function EventProvider({ children }: { children: ReactNode }) {
       });
       if (!res.ok) throw new Error("Failed to fetch events");
       const data = await res.json();
-      // console.log("Fetched Events Data:", data); // Debug log removed
+      console.log("Fetched Events Data:", data); // Debug log restored
 
       // API Response structure: { success: true, data: { message: "...", events: [...] } }
       const eventsList = data.data?.events || [];
 
-      const mappedEvents = eventsList.map((e: any) => ({
+      const mappedEvents = eventsList.map((e: any) => {
+        console.log(`Event ${e.id} Raw HeadGuestID:`, e.headGuestId, e.HeadGuestID);
+        return {
         id: e.id || e.ID,
         name: e.name !== undefined ? e.name : e.Name,
         location: e.location !== undefined ? e.location : e.Location,
-        startDate: e.startDate || e.StartDate,
-        endDate: e.endDate || e.EndDate,
+        startDate: e.start_date || e.startDate || e.StartDate,
+        endDate: e.end_date || e.endDate || e.EndDate,
         organizer: "Me",
         guestCount: 0,
         hotelCount: 0,
         inventoryConsumed: 0,
         status: (e.status || e.Status || "draft").toLowerCase(),
-        headGuestId: e.headGuestId || e.HeadGuestID,
-      }));
-      // console.log("Mapped Events:", mappedEvents); // Debug log removed
+        headGuestId: e.head_guest_id || e.headGuestId || e.HeadGuestID,
+      }});
+      console.log("Mapped Events:", mappedEvents); // Debug log restored
       setEvents(mappedEvents);
     } catch (err: any) {
       console.error("Fetch events error:", err);
@@ -177,7 +180,15 @@ export function EventProvider({ children }: { children: ReactNode }) {
 
   return (
     <EventContext.Provider
-      value={{ events, addEvent, updateEvent, deleteEvent, loading, error }}
+      value={{
+        events,
+        addEvent,
+        updateEvent,
+        deleteEvent,
+        refreshEvents: fetchEvents,
+        loading,
+        error,
+      }}
     >
       {children}
     </EventContext.Provider>

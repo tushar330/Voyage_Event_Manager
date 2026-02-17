@@ -8,7 +8,7 @@ export async function PATCH(
         const { id: eventId, cartItemId } = await params;
         const body = await req.json();
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const targetUrl = `${backendUrl}/api/v1/events/${eventId}/cart/${cartItemId}`;
 
         const authHeader = req.headers.get('Authorization') || '';
@@ -41,7 +41,7 @@ export async function DELETE(
     try {
         const { id: eventId, cartItemId } = await params;
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const targetUrl = `${backendUrl}/api/v1/events/${eventId}/cart/${cartItemId}`;
 
         const authHeader = req.headers.get('Authorization') || '';

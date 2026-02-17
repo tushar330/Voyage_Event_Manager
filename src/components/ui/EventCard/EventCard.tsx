@@ -16,7 +16,7 @@ import { useEvents } from '@/context/EventContext';
  */
 export function EventCard({ event, className }: EventCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { deleteEvent } = useEvents();
+  const { deleteEvent, refreshEvents } = useEvents();
 
   const handleAssignClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -81,6 +81,7 @@ export function EventCard({ event, className }: EventCardProps) {
         onClose={() => setIsModalOpen(false)} 
         eventId={event.id} 
         eventName={event.name}
+        onAssignSuccess={refreshEvents}
     />
     </>
   );

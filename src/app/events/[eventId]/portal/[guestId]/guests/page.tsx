@@ -40,7 +40,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
 
         try {
             setLoading(true);
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
             const response = await fetch(`${backendUrl}/api/v1/events/${eventId}/guests`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -134,7 +134,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
         setGuests(prev => prev.map(g => g.id === updatedGuest.id ? updatedGuest : g));
 
         try {
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
             const response = await fetch(`${backendUrl}/api/v1/guests/${updatedGuest.id}`, {
                 method: 'PATCH',
                 headers: {
@@ -171,7 +171,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
         setGuests(prev => prev.filter(g => g.id !== guestId));
 
         try {
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
             const response = await fetch(`${backendUrl}/api/v1/guests/${guestId}`, {
                 method: 'DELETE',
                 headers: {

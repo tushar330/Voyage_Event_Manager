@@ -6,7 +6,7 @@ export async function GET(
 ) {
     try {
         const { hotelCode } = await params;
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
         const authHeader = req.headers.get('Authorization') || '';
         const res = await fetch(`${backendUrl}/api/v1/hotels/${hotelCode}/banquets`, {

@@ -24,7 +24,7 @@ export default function PortalDashboard() {
             if (!token) return;
 
             try {
-                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
                 
                 // TODO: These endpoints need to return the actual lists.
                 // Currently checking if they exist in routes.go

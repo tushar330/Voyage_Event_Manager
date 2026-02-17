@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     // or just rely on the auth() check and inject the ClerkID into the backend request.
     
     // Forward to Go Backend
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const res = await fetch(`${backendUrl}/api/v1/agents/onboarding`, {
       method: 'POST',
       headers: {

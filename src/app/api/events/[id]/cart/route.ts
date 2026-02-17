@@ -9,7 +9,7 @@ export async function GET(
         const { searchParams } = new URL(req.url);
         const status = searchParams.get('status');
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         let targetUrl = `${backendUrl}/api/v1/events/${eventId}/cart`;
 
         if (status) {
@@ -44,7 +44,7 @@ export async function POST(
         const { id: eventId } = await params;
         const body = await req.json();
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const targetUrl = `${backendUrl}/api/v1/events/${eventId}/cart`;
 
         const authHeader = req.headers.get('Authorization') || '';

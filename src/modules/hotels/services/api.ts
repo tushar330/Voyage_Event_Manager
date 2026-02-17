@@ -1,6 +1,7 @@
 import { Hotel, HotelDataWrapper, Banquet, Catering, RoomType } from '../types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+const API_URL = `${backendUrl}/api/v1`;
 
 export const hotelApi = {
     /**

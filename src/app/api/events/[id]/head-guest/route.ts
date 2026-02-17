@@ -41,7 +41,7 @@ export async function POST(
     }
 
     // 2. Call Go Backend to create DB User and Link to Event
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/head-guest`, {
         method: 'POST',
         headers: {

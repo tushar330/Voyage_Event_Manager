@@ -8,9 +8,10 @@ interface HeadGuestModalProps {
   onClose: () => void;
   eventId: string;
   eventName: string;
+  onAssignSuccess?: () => void;
 }
 
-export function HeadGuestModal({ isOpen, onClose, eventId, eventName }: HeadGuestModalProps) {
+export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSuccess }: HeadGuestModalProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -27,7 +28,7 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName }: HeadGues
     setError('');
 
     try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/head-guest`, {
             method: 'POST',
             headers: { 
@@ -51,6 +52,10 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName }: HeadGues
         }
 
         setSuccess(true);
+        
+        if (onAssignSuccess) {
+            onAssignSuccess();
+        }
         
     } catch (err: any) {
         setError(err.message);
@@ -94,36 +99,21 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName }: HeadGues
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h3 className="mt-2 text-lg font-medium text-gray-900">Success!</h3>
-                <p className="mt-1 text-sm text-gray-500">Head guest assigned successfully.</p>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">Head Guest Assigned!</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                    Login credentials have been sent to <strong>{email}</strong>.
+                </p>
                 
-                {tempPassword && (
-                    <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Temporary Password</p>
-                        <div className="flex items-center justify-between bg-white border border-gray-300 rounded p-2">
-                            <code className="text-sm font-mono text-blue-600 font-bold">{tempPassword}</code>
-                            <button 
-                                onClick={handleCopyPassword}
-                                className="text-gray-500 hover:text-blue-600 text-xs font-semibold ml-2"
-                            >
-                                Copy
-                            </button>
-                        </div>
-                        <p className="mt-2 text-xs text-red-500">
-                            Please copy and send this password to the guest immediately. It will not be shown again.
-                        </p>
-                    </div>
-                )}
-
-                <button
-                    onClick={resetModal}
-                    className="mt-6 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                    Done
-                </button>
-             </div>
-        ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="mt-6">
+                    <button
+                        onClick={resetModal}
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-neutral-900 text-base font-medium text-white hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500 sm:text-sm"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        ) : (  <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-sm text-gray-500 mb-4">
                 Create a head guest account for <strong>{eventName}</strong>. 
                 They will receive an email with their login credentials.

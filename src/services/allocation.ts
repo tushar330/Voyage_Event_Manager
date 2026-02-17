@@ -1,6 +1,7 @@
 import { AllocateRequest, GetAllocationsResponse, UpdateAllocationRequest, EventDetails, Guest, RoomInventory, AllocatedFamily } from "@/types/allocation";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+const API_BASE_URL = `${backendUrl}/api/v1`;
 
 async function fetchWithAuth(url: string, token: string | null, options: RequestInit = {}) {
     if (!token) {
