@@ -51,6 +51,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
         if (data) {
           data.hotels = data.hotels || [];
           data.flights = data.flights || [];
+          data.transfers = data.transfers || [];
         }
         setCart(data);
       } catch (err: any) {

@@ -6,11 +6,15 @@ export async function GET(req: Request) {
         const cityId = searchParams.get('city_id');
 
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-        let targetUrl = `${backendUrl}/api/v1/hotels`;
+        // Ensure backendUrl doesn't have a trailing slash
+        const baseUrl = backendUrl?.replace(/\/$/, '');
+        let targetUrl = `${baseUrl}/api/v1/hotels`;
 
         if (cityId) {
             targetUrl += `?city_id=${cityId}`;
         }
+        
+        console.log(`Proxying request to: ${targetUrl}`);
 
         const authHeader = req.headers.get('Authorization') || '';
         const res = await fetch(targetUrl, {

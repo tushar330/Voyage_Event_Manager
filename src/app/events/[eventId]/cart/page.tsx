@@ -27,8 +27,15 @@ export default function CartPage() {
     }
   }, [eventId, fetchCart]);
 
+  // useEffect(() => {
+  //   if (cart) {
+  //       console.log("Cart Data:", cart);
+  //       toast.info(`Cart: H:${cart.hotels?.length || 0} F:${cart.flights?.length || 0} T:${cart.transfers?.length || 0}`);
+  //   }
+  // }, [cart]);
+
   const filteredData = useMemo(() => {
-    if (!cart) return { hotels: [], flights: [], total: 0 };
+    if (!cart) return { hotels: [], flights: [], transfers: [], total: 0 };
 
     const targetStatus =
       activeTab === "cart" ? ["cart", "approved", "booked"] : ["wishlist"];
@@ -75,6 +82,11 @@ export default function CartPage() {
       targetStatus.includes(i.status || "cart"),
     );
 
+    // Filter Transfers
+    const transfers = (cart.transfers || []).filter((i) =>
+      targetStatus.includes(i.status || "cart"),
+    );
+
     // Calculate Total
     let total = 0;
     hotels.forEach((group) => {
@@ -90,8 +102,11 @@ export default function CartPage() {
     flights.forEach((item) => {
       total += item.locked_price * item.quantity;
     });
+    transfers.forEach((item) => {
+      total += item.locked_price * item.quantity;
+    });
 
-    return { hotels, flights, total };
+    return { hotels, flights, transfers, total };
   }, [cart, activeTab]);
 
   const handleFinalize = async () => {
@@ -156,7 +171,9 @@ export default function CartPage() {
   }
 
   const isEmpty =
-    filteredData.hotels.length === 0 && filteredData.flights.length === 0;
+    filteredData.hotels.length === 0 &&
+    filteredData.flights.length === 0 &&
+    filteredData.transfers.length === 0;
 
   return (
     <div className="min-h-screen bg-neutral-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -379,6 +396,31 @@ export default function CartPage() {
                   </div>
                 </div>
               )}
+
+              {/* Transfers Group */}
+              {filteredData.transfers.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+                  <div className="p-4 bg-neutral-50 border-b border-neutral-200">
+                    <h4 className="font-bold text-neutral-900">Transfers</h4>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {filteredData.transfers.map((item) => (
+                      <CartItemRow
+                        key={item.id}
+                        item={item}
+                        activeTab={activeTab}
+                        onRemove={() => removeFromCart(eventId, item.id)}
+                        onUpdate={(qty) =>
+                          updateCartItem(eventId, item.id, { quantity: qty })
+                        }
+                        onMoveToCart={() =>
+                          updateCartItem(eventId, item.id, { status: "cart" })
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Price Summary Sidebar - Only for Cart */}
@@ -498,6 +540,8 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
         return "Flight Booking";
       case "hotel":
         return "Hotel Selection";
+      case "transfer":
+        return item.transfer_details?.car_model || "Transfer";
       default:
         return "Inventory Item";
     }
@@ -523,6 +567,8 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
           item.hotel_details?.image_urls?.[0] ||
           "/placeholder-hotel.jpg"
         );
+      case "transfer":
+         return "/placeholder-transfer.jpg";
       default:
         return "/placeholder-item.jpg";
     }
