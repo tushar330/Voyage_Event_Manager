@@ -5,23 +5,32 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
 interface Guest {
-  id: string;
-  name: string;
-  age: number;
-  type: 'adult' | 'child';
-  phone: string;
-  email: string;
-  event_id: string;
-  family_id: string;
-  arrival_date: string;
-  departure_date: string;
+  ID: string;
+  guest_id?: string;
+  // snake_case aliases for GORM json tags
+  id?: string;
+  Name: string;
+  guest_name?: string;
+  name?: string;
+  Age: number;
+  age?: number;
+  Type: 'adult' | 'child';
+  type?: string;
+  Phone: string;
+  phone?: string;
+  Email: string;
+  email?: string;
+  EventID: string;
+  FamilyID: string;
+  family_id?: string;
+  ArrivalDate: string;
+  arrival_date?: string;
+  DepartureDate: string;
+  departure_date?: string;
 }
 
 interface APIResponse {
-  success: boolean;
-  data: {
-    guests: Guest[];
-  };
+  guests: Guest[];
   error?: string;
 }
 
@@ -80,11 +89,31 @@ export default function ManageGuestsPage({
         }
 
         const result: APIResponse = await response.json();
-        if (result.success && result.data && result.data.guests) {
-            setGuests(result.data.guests);
-        } else {
-             setGuests(result.data?.guests || []);
-        }
+        const rawGuests = result.guests || [];
+        // Normalize fields: backend returns PascalCase from GORM
+        const normalized: Guest[] = rawGuests.map(g => ({
+          ...g,
+          ID: g.guest_id || g.ID || g.id || '',
+          id: g.guest_id || g.ID || g.id || '',
+          Name: g.guest_name || g.Name || g.name || '',
+          name: g.guest_name || g.Name || g.name || '',
+          Age: g.Age ?? g.age ?? 0,
+          age: g.Age ?? g.age ?? 0,
+          Type: (g.Type || g.type || 'adult') as 'adult' | 'child',
+          type: (g.Type || g.type || 'adult') as 'adult' | 'child',
+          Phone: g.Phone || g.phone || '',
+          phone: g.Phone || g.phone || '',
+          Email: g.Email || g.email || '',
+          email: g.Email || g.email || '',
+          EventID: g.EventID || '',
+          FamilyID: g.FamilyID || g.family_id || '',
+          family_id: g.FamilyID || g.family_id || '',
+          ArrivalDate: g.ArrivalDate || g.arrival_date || '',
+          arrival_date: g.ArrivalDate || g.arrival_date || '',
+          DepartureDate: g.DepartureDate || g.departure_date || '',
+          departure_date: g.DepartureDate || g.departure_date || '',
+        }));
+        setGuests(normalized);
 
       } catch (error) {
         console.error("Error fetching guests:", error);
@@ -100,7 +129,7 @@ export default function ManageGuestsPage({
 
   // Group guests by FamilyID
   const groupedGuests = guests.reduce((acc, guest) => {
-    const key = guest.family_id || guest.id; // Use FamilyID if present, else ID (to group singles)
+    const key = (guest.family_id || guest.id)!; // Use FamilyID if present, else ID (to group singles)
     if (!acc[key]) {
       acc[key] = [];
     }
@@ -223,7 +252,7 @@ export default function ManageGuestsPage({
                             >
                               <td className="px-6 py-4 font-medium text-neutral-900">
                                 <button 
-                                  onClick={() => hasFamily && toggleRow(headGuest.id)}
+                                  onClick={() => hasFamily && toggleRow(headGuest.id!)}
                                   className={`flex items-center gap-2 ${hasFamily ? 'cursor-pointer hover:text-purple-600' : 'cursor-default'}`}
                                 >
                                   {hasFamily && (

@@ -30,10 +30,12 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
 
     // --- Derived State ---
     const filteredGuests = useMemo(() => {
-        return guests.filter(guest => 
-            guest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            guest.email?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        return guests.filter(guest => {
+            const name = (guest.name || '').toLowerCase();
+            const email = (guest.email || '').toLowerCase();
+            const query = searchQuery.toLowerCase();
+            return name.includes(query) || email.includes(query);
+        });
     }, [guests, searchQuery]);
 
     // Group guests by FamilyID
@@ -108,7 +110,7 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
     const handleExport = () => {
         const headers = ['Name', 'Email', 'Phone', 'Room Group'];
         const rows = filteredGuests.map(g => [
-            g.name,
+            g.name || '',
             g.email || '',
             g.phone || '',
             g.roomGroupId || 'Unassigned'

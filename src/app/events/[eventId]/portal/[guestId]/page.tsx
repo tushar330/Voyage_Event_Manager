@@ -46,7 +46,7 @@ export default function PortalDashboard() {
 
                     // Basic logic to calculate stats from real data
                     // This assumes standard response structure. If endpoints return empty/mocked, stats will be 0.
-                    const guests = guestsData.data.guests || [];
+                    const guests = guestsData.guests || [];
                     // Filter guests that belong to this head guest's family/group if backend doesn't filter.
                     // For now, assuming backend returns what's relevant or we show all event stats (might need refinement).
                     // Actually, head guest should only see THEIR sub-guests.

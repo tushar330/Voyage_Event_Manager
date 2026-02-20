@@ -322,8 +322,8 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
                   className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {status === "sent_to_hotel"
-                    ? "Sent to Hotel"
-                    : "Send to Hotel"}
+                    ? "Sent to TBO"
+                    : "Send to TBO"}
                 </button>
               </div>
               <NegotiationTable
