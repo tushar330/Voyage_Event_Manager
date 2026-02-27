@@ -54,6 +54,8 @@ export default function EventModal({
 
   if (!isOpen) return null;
 
+  const today = new Date().toISOString().split("T")[0];
+
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
@@ -185,8 +187,9 @@ export default function EventModal({
                   <input
                     type="date"
                     value={formData.startDate}
+                    min={today}
                     onChange={(e) =>
-                      setFormData({ ...formData, startDate: e.target.value })
+                      setFormData({ ...formData, startDate: e.target.value, endDate: formData.endDate && formData.endDate < e.target.value ? e.target.value : formData.endDate })
                     }
                     className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-corporate-blue-100"
                   />
@@ -199,6 +202,7 @@ export default function EventModal({
                   <input
                     type="date"
                     value={formData.endDate}
+                    min={formData.startDate || today}
                     onChange={(e) =>
                       setFormData({ ...formData, endDate: e.target.value })
                     }

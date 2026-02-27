@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { SubGuest, GuestInput } from '@/types';
+import SharedGuestTable, { TableGuest } from '@/components/shared/SharedGuestTable';
 
 interface GuestListProps {
     initialGuests: SubGuest[];
@@ -27,6 +28,7 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
     
     // --- Add/Edit State ---
     const [editingGuest, setEditingGuest] = useState<SubGuest | null>(null);
+    const [isEditingMainGuest, setIsEditingMainGuest] = useState(false);
 
     // --- Derived State ---
     const filteredGuests = useMemo(() => {
@@ -38,18 +40,20 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
         });
     }, [guests, searchQuery]);
 
-    // Group guests by FamilyID
-    const groupedGuests = useMemo(() => {
-        const groups = filteredGuests.reduce((acc, guest) => {
-            // Use familyId if present, else use ID to treat as individual
-            const key = guest.familyId || guest.id;
-            if (!acc[key]) {
-                acc[key] = [];
-            }
-            acc[key].push(guest);
-            return acc;
-        }, {} as Record<string, SubGuest[]>);
-        return Object.values(groups);
+    // Group guests by FamilyID and map to TableGuest
+    const mappedGuests: TableGuest[] = useMemo(() => {
+        return filteredGuests.map(guest => ({
+            id: guest.id,
+            familyId: guest.familyId,
+            name: guest.name,
+            age: guest.age,
+            type: guest.type,
+            email: guest.email,
+            phone: guest.phone,
+            arrivalDate: guest.arrivalDate,
+            departureDate: guest.departureDate,
+            originalData: guest
+        }));
     }, [filteredGuests]);
 
     // --- Delete Confirmation State ---
@@ -152,19 +156,128 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
 
     const openAddModal = () => {
         setEditingGuest(null);
+        setIsEditingMainGuest(false);
         setIsAddModalOpen(true);
     };
 
-    const openEditModal = (guest: SubGuest) => {
+    const openEditModal = (guest: SubGuest, isMainGuest: boolean = false) => {
         setEditingGuest(guest);
+        setIsEditingMainGuest(isMainGuest);
         setIsAddModalOpen(true);
     };
 
     const handleSaveGuest = async (guestData: GuestInput) => {
         if (editingGuest) {
             // Edit Mode — keep existing behavior
-            const updatedGuest = { ...editingGuest, name: guestData.name, age: guestData.age, email: guestData.email, phone: guestData.phone } as SubGuest;
+            const updatedGuest = { 
+                ...editingGuest, 
+                name: guestData.name, 
+                age: guestData.age, 
+                email: guestData.email, 
+                phone: guestData.phone,
+                arrivalDate: guestData.arrivalDate,
+                departureDate: guestData.departureDate
+            } as SubGuest;
             onUpdateGuest(updatedGuest);
+            // Trigger refetch from DB so dates and other fields show the persisted values
+            onGuestAdded?.();
+
+            // Handle new family members added during edit
+            if (guestData.family_members && guestData.family_members.length > 0) {
+                try {
+                    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+                    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                    // The family ID to use: if the main member already has a familyId, use it.
+                    // Otherwise use their own ID as the family group identifier.
+                    const targetFamilyId = editingGuest.familyId || editingGuest.id;
+
+                    // If main member had no familyId, first PATCH them to assign themselves a family group
+                    if (!editingGuest.familyId) {
+                        await fetch(`${backendUrl}/api/v1/guests/${editingGuest.id}`, {
+                            method: 'PATCH',
+                            headers,
+                            body: JSON.stringify({
+                                id: editingGuest.id,
+                                ID: editingGuest.id,
+                                guest_id: editingGuest.id,
+                                family_id: targetFamilyId,
+                                FamilyID: targetFamilyId,
+                            })
+                        });
+                    }
+
+                    // Now POST each new member and immediately PATCH to enforce family_id
+                    for (const fm of guestData.family_members) {
+                        const postPayload = {
+                            name: fm.name,
+                            age: fm.age,
+                            type: fm.type,
+                            email: fm.email,
+                            phone: fm.phone,
+                            arrivalDate: fm.arrivalDate,
+                            departureDate: fm.departureDate,
+                        };
+
+                        const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/guests`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(postPayload)
+                        });
+
+                        if (!res.ok) {
+                            console.error('Failed to add family member:', fm.name);
+                            continue;
+                        }
+
+                        // Backend ignores family_id on POST and auto-generates its own.
+                        // The response gives us that auto-generated family_id: data.family_id
+                        let responseData: any = {};
+                        try { responseData = await res.json(); } catch {}
+
+                        const autoFamilyId = responseData?.data?.family_id;
+                        if (!autoFamilyId) {
+                            console.error('No family_id in POST response, cannot relocate guest');
+                            continue;
+                        }
+
+                        // Refetch the guest list to find the newly created guest by their auto family_id
+                        const listRes = await fetch(`${backendUrl}/api/v1/events/${eventId}/guests`, { headers });
+                        if (!listRes.ok) { console.error('Failed to refetch guest list'); continue; }
+                        const listData = await listRes.json();
+                        const allGuests: any[] = listData?.guests || [];
+
+                        // Find guests that were assigned the auto-generated family_id
+                        const newGuests = allGuests.filter((g: any) => {
+                            const gFamilyId = g.FamilyID || g.family_id || '';
+                            return gFamilyId === autoFamilyId;
+                        });
+
+                        // PATCH each of them to the correct targetFamilyId
+                        for (const ng of newGuests) {
+                            const ngId = ng.guest_id || ng.ID || ng.id;
+                            if (!ngId) continue;
+                            await fetch(`${backendUrl}/api/v1/guests/${ngId}`, {
+                                method: 'PATCH',
+                                headers,
+                                body: JSON.stringify({
+                                    id: ngId,
+                                    ID: ngId,
+                                    guest_id: ngId,
+                                    family_id: targetFamilyId,
+                                    FamilyID: targetFamilyId,
+                                })
+                            });
+                        }
+                    }
+
+                    onGuestAdded?.();
+                } catch (error) {
+                    console.error('Error adding new family members:', error);
+                }
+            }
+
             showToast('Guest updated successfully');
             setIsAddModalOpen(false);
         } else {
@@ -264,120 +377,17 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th scope="col" className="px-6 py-3 text-left">
-                                    <input 
-                                        type="checkbox" 
-                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                        checked={selectedGuestIds.size === filteredGuests.length && filteredGuests.length > 0}
-                                        onChange={toggleSelectAll}
-                                    />
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone Number</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Family Members</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {groupedGuests.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                                        No guests found matching your search.
-                                    </td>
-                                </tr>
-                            ) : (
-                                groupedGuests.map(group => {
-                                    const headGuest = group[0];
-                                    const otherMembers = group.slice(1);
-                                    const hasFamily = otherMembers.length > 0;
-                                    const isExpanded = expandedRowId === headGuest.id;
-
-                                    return (
-                                        <>
-                                            <tr key={headGuest.id} className={`hover:bg-gray-50 ${isExpanded ? "bg-purple-50" : ""}`}>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                        checked={selectedGuestIds.has(headGuest.id)}
-                                                        onChange={() => toggleSelectGuest(headGuest.id)}
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <button 
-                                                        onClick={() => hasFamily && toggleRow(headGuest.id)}
-                                                        className={`flex items-center gap-2 ${hasFamily ? 'cursor-pointer hover:text-blue-600' : 'cursor-default'}`}
-                                                    >
-                                                        {hasFamily && (
-                                                            <span className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
-                                                                ▶
-                                                            </span>
-                                                        )}
-                                                        <div className="text-sm font-medium text-gray-900 text-left">
-                                                            {headGuest.name}
-                                                        </div>
-                                                    </button>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-500">{headGuest.phone || '-'}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                     <div className="text-sm text-gray-500">{headGuest.age ? `${headGuest.age} yrs` : '-'}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                     <div className="text-sm text-gray-500">
-                                                        {hasFamily ? `${otherMembers.length} Family Member${otherMembers.length > 1 ? 's' : ''}` : 'None'}
-                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <button 
-                                                        onClick={() => openEditModal(headGuest)}
-                                                        className="text-blue-600 hover:text-blue-900 mr-4"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteSingle(headGuest.id)}
-                                                        className="text-red-600 hover:text-red-900"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            {isExpanded && hasFamily && (
-                                                <tr className="bg-gray-50">
-                                                    <td colSpan={6} className="px-6 py-4">
-                                                        <div className="ml-8 space-y-2">
-                                                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Family Members</p>
-                                                            {otherMembers.map(member => (
-                                                                <div key={member.id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 text-sm">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <span className="font-medium text-gray-900">{member.name}</span>
-                                                                        <span className="text-gray-500 text-xs">({member.age ? `${member.age} yrs` : '-'})</span>
-                                                                    </div>
-                                                                    <div className="flex gap-2">
-                                                                        <button onClick={() => openEditModal(member)} className="text-xs text-blue-600 hover:text-blue-800">Edit</button>
-                                                                        <button onClick={() => handleDeleteSingle(member.id)} className="text-xs text-red-600 hover:text-red-800">Delete</button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+            <div className="w-full">
+                <SharedGuestTable 
+                    guests={mappedGuests}
+                    showCheckboxes={true}
+                    showActions={true}
+                    onEdit={openEditModal}
+                    onDelete={handleDeleteSingle}
+                    selectedIds={selectedGuestIds}
+                    onSelectAll={toggleSelectAll}
+                    onSelect={toggleSelectGuest}
+                />
             </div>
 
             {/* Edit/Add Modal */}
@@ -394,6 +404,7 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
                         </div>
                         <GuestForm 
                             initialData={editingGuest} 
+                            isMainGuest={isEditingMainGuest}
                             onSubmit={handleSaveGuest} 
                             onCancel={() => setIsAddModalOpen(false)} 
                         />
@@ -439,10 +450,15 @@ interface FamilyMemberForm {
     id: string;
     name: string;
     age: string;
+    email: string;
+    phone: string;
+    arrivalDate: string;
+    departureDate: string;
 }
 
-function GuestForm({ initialData, onSubmit, onCancel }: { 
+function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: { 
     initialData: SubGuest | null, 
+    isMainGuest?: boolean,
     onSubmit: (data: GuestInput) => void,
     onCancel: () => void 
 }) {
@@ -451,8 +467,22 @@ function GuestForm({ initialData, onSubmit, onCancel }: {
     const [age, setAge] = useState(initialData?.age?.toString() || '');
     const [email, setEmail] = useState(initialData?.email || '');
     const [phone, setPhone] = useState(initialData?.phone || '');
-    const [arrivalDate, setArrivalDate] = useState('');
-    const [departureDate, setDepartureDate] = useState('');
+    const parseInitialDate = (dateString?: string) => {
+        if (!dateString) return '';
+        if (dateString.includes('/')) {
+            const parts = dateString.split('/');
+            if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+        if (dateString.includes('-')) {
+            const parts = dateString.split('-');
+            if (parts[0].length === 4) return dateString.substring(0, 10); // YYYY-MM-DD
+            if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+        return dateString.substring(0, 10);
+    };
+
+    const [arrivalDate, setArrivalDate] = useState(parseInitialDate(initialData?.arrivalDate));
+    const [departureDate, setDepartureDate] = useState(parseInitialDate(initialData?.departureDate));
     const [numFamilyMembers, setNumFamilyMembers] = useState('0');
     const [familyMembers, setFamilyMembers] = useState<FamilyMemberForm[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -463,7 +493,7 @@ function GuestForm({ initialData, onSubmit, onCancel }: {
         const current = [...familyMembers];
         if (num > current.length) {
             for (let i = current.length; i < num; i++) {
-                current.push({ id: `fm-${i}`, name: '', age: '' });
+                current.push({ id: `fm-${i}`, name: '', age: '', email: '', phone: '', arrivalDate: '', departureDate: '' });
             }
         } else {
             current.splice(num);
@@ -475,6 +505,26 @@ function GuestForm({ initialData, onSubmit, onCancel }: {
         setFamilyMembers(members => members.map(m => m.id === id ? { ...m, [field]: value } : m));
     };
 
+    const formatDateForApi = (dateString?: string) => {
+        if (!dateString) return undefined;
+        // Check if string is DD/MM/YYYY (from initial payload parsing reverse map)
+        if (dateString.includes('/')) {
+            const parts = dateString.split('/');
+            if (parts.length === 3) {
+                return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).toISOString();
+            }
+        }
+        // Assuming YYYY-MM-DD from the HTML input
+        if (dateString.includes('-') && dateString.length >= 10) {
+            return new Date(`${dateString.substring(0, 10)}T00:00:00Z`).toISOString();
+        }
+        try {
+            return new Date(dateString).toISOString();
+        } catch {
+            return dateString;
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -484,14 +534,19 @@ function GuestForm({ initialData, onSubmit, onCancel }: {
             age: parseInt(age) || 0,
             email: email.trim() || undefined,
             phone: phone.trim() || undefined,
-            arrivalDate: arrivalDate ? new Date(arrivalDate).toISOString() : undefined,
-            departureDate: departureDate ? new Date(departureDate).toISOString() : undefined,
+            arrivalDate: formatDateForApi(arrivalDate),
+            departureDate: formatDateForApi(departureDate),
         };
 
-        if (!isEditMode && familyMembers.length > 0) {
+        if ((!isEditMode || isMainGuest) && familyMembers.length > 0) {
             payload.family_members = familyMembers.map(m => ({
                 name: m.name.trim(),
                 age: parseInt(m.age) || 0,
+                type: (parseInt(m.age) || 0) < 16 ? 'child' : 'adult',
+                email: m.email.trim() || undefined,
+                phone: m.phone.trim() || undefined,
+                arrivalDate: formatDateForApi(m.arrivalDate),
+                departureDate: formatDateForApi(m.departureDate),
             }));
         }
 
@@ -515,54 +570,93 @@ function GuestForm({ initialData, onSubmit, onCancel }: {
                     <input type="number" min="0" max="120" required className={inputClass} value={age} onChange={e => setAge(e.target.value)} />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Phone</label>
-                    <input type="tel" className={inputClass} value={phone} onChange={e => setPhone(e.target.value)} />
+                    <label className="block text-sm font-medium text-gray-700">Phone *</label>
+                    <input type="tel" required className={inputClass} value={phone} onChange={e => setPhone(e.target.value)} />
                 </div>
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input type="email" className={inputClass} value={email} onChange={e => setEmail(e.target.value)} />
+                <label className="block text-sm font-medium text-gray-700">Email *</label>
+                <input type="email" required className={inputClass} value={email} onChange={e => setEmail(e.target.value)} />
             </div>
 
-            {!isEditMode && (
-                <>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Arrival Date</label>
-                            <input type="date" className={inputClass} value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Departure Date</label>
-                            <input type="date" className={inputClass} value={departureDate} onChange={e => setDepartureDate(e.target.value)} />
-                        </div>
-                    </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Arrival Date *</label>
+                    <input type="date" required className={inputClass} value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Departure Date *</label>
+                    <input type="date" required className={inputClass} value={departureDate} onChange={e => setDepartureDate(e.target.value)} />
+                </div>
+            </div>
 
+            {(!isEditMode || (isEditMode && isMainGuest)) && (
+                <>
                     {/* Family Members */}
                     <div className="pt-2 border-t border-gray-100">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-4">
                             <label className="block text-sm font-medium text-gray-700">Family Members</label>
-                            <input 
-                                type="number" min="0" max="20" 
-                                className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={numFamilyMembers}
-                                onChange={e => handleFamilyCountChange(e.target.value)}
-                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const nextId = `fm-${Date.now()}-${familyMembers.length}`;
+                                    setFamilyMembers([...familyMembers, { id: nextId, name: '', age: '', email: '', phone: '', arrivalDate: '', departureDate: '' }]);
+                                    setNumFamilyMembers(String(familyMembers.length + 1));
+                                }}
+                                className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md flex items-center gap-1 transition-colors"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                Add Family Member
+                            </button>
                         </div>
 
                         {familyMembers.length > 0 && (
                             <div className="space-y-3">
                                 {familyMembers.map((member, index) => (
                                     <div key={member.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                        <p className="text-xs font-semibold text-gray-500 mb-2">Member {index + 1}</p>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <p className="text-xs font-semibold text-gray-500">New Family Member {index + 1}</p>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => {
+                                                    const newMembers = familyMembers.filter((_, i) => i !== index);
+                                                    setFamilyMembers(newMembers);
+                                                    setNumFamilyMembers(String(newMembers.length));
+                                                }}
+                                                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                                             <div>
-                                                <label className="block text-xs text-gray-500 mb-1">Name *</label>
-                                                <input type="text" required className={inputClass} value={member.name} onChange={e => updateFamilyMember(member.id, 'name', e.target.value)} placeholder="Name" />
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+                                                <input type="text" required className={inputClass} value={member.name} onChange={e => updateFamilyMember(member.id, 'name', e.target.value)} placeholder="Full name" />
                                             </div>
                                             <div>
-                                                <label className="block text-xs text-gray-500 mb-1">Age *</label>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Age *</label>
                                                 <input type="number" min="0" max="120" required className={inputClass} value={member.age} onChange={e => updateFamilyMember(member.id, 'age', e.target.value)} placeholder="Age" />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
+                                                <input type="email" required className={inputClass} value={member.email} onChange={e => updateFamilyMember(member.id, 'email', e.target.value)} placeholder="Email address" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Phone *</label>
+                                                <input type="tel" required className={inputClass} value={member.phone} onChange={e => updateFamilyMember(member.id, 'phone', e.target.value)} placeholder="Phone number" />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Arrival Date *</label>
+                                                <input type="date" required className={inputClass} value={member.arrivalDate} onChange={e => updateFamilyMember(member.id, 'arrivalDate', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Departure Date *</label>
+                                                <input type="date" required className={inputClass} value={member.departureDate} onChange={e => updateFamilyMember(member.id, 'departureDate', e.target.value)} />
                                             </div>
                                         </div>
                                     </div>
@@ -571,7 +665,7 @@ function GuestForm({ initialData, onSubmit, onCancel }: {
                         )}
 
                         {familyMembers.length === 0 && (
-                            <p className="text-xs text-gray-400 italic">No family members. Change the count to add.</p>
+                            <p className="text-xs text-gray-400 italic">No new family members added. Click the button above to add one.</p>
                         )}
                     </div>
                 </>

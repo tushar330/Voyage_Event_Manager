@@ -41,10 +41,13 @@ export interface SubGuest {
     email?: string;
     phone?: string;
     age?: number;
+    type?: string;
     guestCount?: number;
     headGuestId: string;
     roomGroupId?: string;
     familyId?: string;
+    arrivalDate?: string;
+    departureDate?: string;
 }
 
 export interface Guest {

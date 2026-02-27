@@ -8,6 +8,10 @@ interface FamilyMember {
   id: string;
   name: string;
   age: string;
+  phone?: string;
+  email?: string;
+  arrivalDate?: string;
+  departureDate?: string;
 }
 
 export default function GuestsPage({
@@ -101,6 +105,10 @@ export default function GuestsPage({
           id: `${i + 1}`,
           name: "",
           age: "",
+          phone: "",
+          email: "",
+          arrivalDate: "",
+          departureDate: "",
         });
       }
     } else if (num < currentMembers.length) {
@@ -122,6 +130,26 @@ export default function GuestsPage({
     );
   };
 
+  const formatDateForApi = (dateString?: string) => {
+    if (!dateString) return undefined;
+    // Check if string is DD/MM/YYYY
+    if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+            return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`).toISOString();
+        }
+    }
+    // Assuming YYYY-MM-DD from the HTML input
+    if (dateString.includes('-') && dateString.length >= 10) {
+        return new Date(`${dateString.substring(0, 10)}T00:00:00Z`).toISOString();
+    }
+    try {
+        return new Date(dateString).toISOString();
+    } catch {
+        return dateString;
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,10 +160,11 @@ export default function GuestsPage({
     const payload: GuestInput = {
       name: name.trim(),
       age: parseInt(age) || 0,
+      type: (parseInt(age) || 0) < 16 ? 'child' : 'adult',
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
-      arrivalDate: arrivalDate ? new Date(arrivalDate).toISOString() : undefined,
-      departureDate: departureDate ? new Date(departureDate).toISOString() : undefined,
+      arrivalDate: formatDateForApi(arrivalDate),
+      departureDate: formatDateForApi(departureDate),
     };
 
     // Add family members if any
@@ -143,6 +172,11 @@ export default function GuestsPage({
       payload.family_members = familyMembers.map((member) => ({
         name: member.name.trim(),
         age: parseInt(member.age) || 0,
+        type: (parseInt(member.age) || 0) < 16 ? 'child' : 'adult',
+        phone: member.phone?.trim() || undefined,
+        email: member.email?.trim() || undefined,
+        arrivalDate: formatDateForApi(member.arrivalDate),
+        departureDate: formatDateForApi(member.departureDate),
       }));
     }
 
@@ -322,10 +356,11 @@ export default function GuestsPage({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Phone
+                    Phone *
                   </label>
                   <input
                     type="tel"
+                    required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
@@ -337,10 +372,11 @@ export default function GuestsPage({
               {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Email
+                  Email *
                 </label>
                 <input
                   type="email"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
@@ -352,10 +388,11 @@ export default function GuestsPage({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Check-in Date
+                    Check-in Date *
                   </label>
                   <input
                     type="date"
+                    required
                     value={arrivalDate}
                     onChange={(e) => setArrivalDate(e.target.value)}
                     className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
@@ -363,10 +400,11 @@ export default function GuestsPage({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Check-out Date
+                    Check-out Date *
                   </label>
                   <input
                     type="date"
+                    required
                     value={departureDate}
                     onChange={(e) => setDepartureDate(e.target.value)}
                     className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
@@ -434,6 +472,68 @@ export default function GuestsPage({
                             required
                             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
                             placeholder="Age"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-600 mb-1">
+                            Phone *
+                          </label>
+                          <input
+                            type="tel"
+                            required
+                            value={member.phone || ""}
+                            onChange={(e) =>
+                              updateFamilyMember(member.id, "phone", e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
+                            placeholder="+91 9876543210"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-600 mb-1">
+                            Email *
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={member.email || ""}
+                            onChange={(e) =>
+                              updateFamilyMember(member.id, "email", e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
+                            placeholder="member@example.com"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-600 mb-1">
+                            Arrival Date *
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={member.arrivalDate || ""}
+                            onChange={(e) =>
+                              updateFamilyMember(member.id, "arrivalDate", e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-600 mb-1">
+                            Departure Date *
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={member.departureDate || ""}
+                            onChange={(e) =>
+                              updateFamilyMember(member.id, "departureDate", e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
                           />
                         </div>
                       </div>
