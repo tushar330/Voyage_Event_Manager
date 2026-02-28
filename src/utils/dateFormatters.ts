@@ -7,8 +7,8 @@
  * @example formatDateRange('2026-03-15', '2026-03-18') => 'Mar 15 – Mar 18'
  */
 export function formatDateRange(startDate: string, endDate: string): string {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = new Date(startDate.includes('T') ? startDate : `${startDate}T00:00:00`);
+    const end = new Date(endDate.includes('T') ? endDate : `${endDate}T00:00:00`);
 
     const startYear = start.getFullYear();
     const endYear = end.getFullYear();

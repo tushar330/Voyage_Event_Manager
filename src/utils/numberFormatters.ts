@@ -12,12 +12,13 @@ export function formatNumber(num: number): string {
 
 /**
  * Format currency
- * @example formatCurrency(1234.56) => '$1,234.56'
+ * @example formatCurrency(1234.56) => '₹1,234.56'
  */
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
-    return new Intl.NumberFormat('en-US', {
+export function formatCurrency(amount: number, currency: string = 'INR'): string {
+    return new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency,
+        maximumFractionDigits: 0,
     }).format(amount);
 }
 

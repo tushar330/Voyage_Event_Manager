@@ -6,6 +6,7 @@
 export interface RoomInventoryItem {
     room_offer_id: string;
     room_name: string;
+    total: number;
     available: number;
     max_capacity: number;
     price_per_room: number;
@@ -19,8 +20,13 @@ export interface Event {
     endDate: string;
     organizer: string;
     guestCount: number;
-    hotelCount: number;
     inventoryConsumed: number;
+    budget?: number;
+    budgetSpent?: number;
+    totalBudget?: number;
+    daysUntilEvent?: number;
+    pendingActions?: number;
+    pendingActionDetails?: string[];
     status: 'active' | 'upcoming' | 'completed';
     headGuestId?: string;
     roomsInventory?: RoomInventoryItem[];

@@ -48,20 +48,26 @@ export function EventProvider({ children }: { children: ReactNode }) {
       const eventsList = data.data?.events || [];
 
       const mappedEvents = eventsList.map((e: any) => {
-        console.log(`Event ${e.id} Raw HeadGuestID:`, e.headGuestId, e.HeadGuestID);
         return {
         id: e.id || e.ID,
         name: e.name !== undefined ? e.name : e.Name,
         location: e.location !== undefined ? e.location : e.Location,
         startDate: e.start_date || e.startDate || e.StartDate,
         endDate: e.end_date || e.endDate || e.EndDate,
-        organizer: "Me",
-        guestCount: 0,
-        hotelCount: 0,
-        inventoryConsumed: 0,
+        organizer: e.organizer || e.Organizer || "Me",
+        guestCount: e.guestCount || 0,
+        inventoryConsumed: e.inventoryConsumed || 0,
+        budgetSpent: e.budgetSpent || 0,
+        budget: e.budget || e.totalBudget || e.Budget,
+        totalBudget: e.totalBudget || 0,
+        daysUntilEvent: e.daysUntilEvent || 0,
+        pendingActions: e.pendingActions || 0,
+        pendingActionDetails: e.pendingActionDetails || [],
         status: (e.status || e.Status || "draft").toLowerCase(),
         headGuestId: e.head_guest_id || e.headGuestId || e.HeadGuestID,
-      }});
+        roomsInventory: e.rooms_inventory || e.roomsInventory || e.RoomsInventory || [],
+      };
+    });
       console.log("Mapped Events:", mappedEvents); // Debug log restored
       setEvents(mappedEvents);
     } catch (err: any) {
@@ -89,6 +95,8 @@ export function EventProvider({ children }: { children: ReactNode }) {
         location: eventData.location,
         startDate: eventData.startDate, // Assuming ISO string from frontend
         endDate: eventData.endDate,
+        budget: eventData.budget,
+        organizer: eventData.organizer,
         hotelId: "default", // Backend requires this? It was string.
         roomsInventory: [],
       };
@@ -126,6 +134,9 @@ export function EventProvider({ children }: { children: ReactNode }) {
         location: updatedEvent.location,
         startDate: updatedEvent.startDate,
         endDate: updatedEvent.endDate,
+        budget: updatedEvent.budget,
+        budgetSpent: (updatedEvent as any).budgetSpent,
+        organizer: updatedEvent.organizer,
         roomsInventory: updatedEvent.roomsInventory,
       };
 

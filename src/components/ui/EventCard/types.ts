@@ -17,6 +17,10 @@ export interface EventCardHeaderProps {
 
 export interface EventCardMetricsProps {
     guestCount: number;
-    hotelCount: number;
     inventoryConsumed: number;
+    budgetSpent?: number;
+    totalBudget?: number;
+    daysUntilEvent?: number;
+    pendingActions?: number;
+    pendingActionDetails?: string[];
 }

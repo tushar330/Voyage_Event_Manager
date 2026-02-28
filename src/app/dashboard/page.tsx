@@ -8,10 +8,9 @@ import { useEvents } from '@/context/EventContext';
 import { useState } from 'react';
 import ProtectedRoute from '@/components/legacy/auth/ProtectedRoute';
 import { useAuth, UserRole } from '@/context/AuthContext';
-import LogoutButton from '@/components/legacy/auth/LogoutButton';
 
 export default function DashboardPage() {
-  const { events } = useEvents();
+  const { events, loading } = useEvents();
   const [showEventModal, setShowEventModal] = useState(false);
 
   return (
@@ -33,18 +32,28 @@ export default function DashboardPage() {
               >
                 + Create Event
               </button>
-              <LogoutButton />
             </div>
           </div>
         </div>
 
         {/* Main Content */}
         <div className="px-8 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-corporate-blue-100"></div>
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border border-neutral-200">
+              <h3 className="text-lg font-medium text-neutral-900">No events found</h3>
+              <p className="mt-1 text-sm text-neutral-500">Get started by creating a new event.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Event Modal */}

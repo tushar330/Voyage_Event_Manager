@@ -74,7 +74,7 @@ export default function EventDashboardPage() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">
-            Event Dashboard
+            {currentEvent ? currentEvent.name : "Event Dashboard"}
           </h1>
           <p className="text-neutral-600 mt-1">
             Manage all aspects of your event from one place.
@@ -674,7 +674,7 @@ function SettlementSection() {
           <div className="space-y-4 text-sm">
             <div className="flex justify-between text-neutral-600">
               <span>Base Room Cost</span>
-              <span>${BASE_COST.toLocaleString()}</span>
+              <span>₹{BASE_COST.toLocaleString('en-IN')}</span>
             </div>
 
             <div className="flex justify-between text-emerald-600 font-medium bg-emerald-50 -mx-2 px-2 py-1 rounded">
@@ -683,7 +683,7 @@ function SettlementSection() {
                 )
               </span>
               <span>
-                +$
+                +₹
                 {markupAmount.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -694,7 +694,7 @@ function SettlementSection() {
             <div className="flex justify-between text-neutral-600">
               <span>Subtotal</span>
               <span>
-                $
+                ₹
                 {subtotal.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -705,7 +705,7 @@ function SettlementSection() {
             <div className="flex justify-between text-neutral-600 border-b border-neutral-100 pb-4">
               <span>Estimated Tax (18%)</span>
               <span>
-                $
+                ₹
                 {taxAmount.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -718,7 +718,7 @@ function SettlementSection() {
                 Estimated Total
               </span>
               <span className="text-2xl font-black text-neutral-900">
-                $
+                ₹
                 {total.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,

@@ -11,10 +11,12 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRole, guestId }: ProtectedRouteProps) {
-    const { isAuthenticated, user } = useAuth();
+    const { isAuthenticated, user, isLoading } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
+        if (isLoading) return;
+
         // Not authenticated - redirect to appropriate login
         if (!isAuthenticated || !user) {
             router.push('/sign-in');
@@ -34,9 +36,17 @@ export default function ProtectedRoute({ children, requiredRole, guestId }: Prot
             router.push(`/events/${user.eventId}/portal/${user.id}`);
             return;
         }
-    }, [isAuthenticated, user, requiredRole, guestId, router]);
+    }, [isAuthenticated, user, requiredRole, guestId, router, isLoading]);
 
     // Show nothing while checking authentication
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-corporate-blue"></div>
+            </div>
+        );
+    }
+
     if (!isAuthenticated || !user) {
         return null;
     }

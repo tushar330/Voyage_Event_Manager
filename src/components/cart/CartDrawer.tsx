@@ -22,9 +22,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   const { cart, loading, removeFromCart, updateCartItem, fetchCart } =
     useCart();
-  const { updateEvent } = useEvents();
+  const { updateEvent, refreshEvents } = useEvents();
   const [activeTab, setActiveTab] = useState<Tab>("cart");
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   // Fetch cart when drawer opens
   React.useEffect(() => {
@@ -109,9 +110,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         (group.rooms || [])
           .filter((r) => ["cart", "approved"].includes(r.status || "cart"))
           .map((r) => ({
-            room_offer_id: r.room_details?.id || r.id, // Assuming room_details has ID, else fallback
+            room_offer_id: r.room_details?.id || r.id,
             room_name: r.room_details?.name || "Room",
-            available: r.quantity, // Using quantity as 'available' allocations
+            total: r.quantity,
+            available: r.quantity,
             max_capacity: r.room_details?.capacity || 2,
             price_per_room: r.locked_price,
           })),
@@ -137,6 +139,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   };
 
+  const handleMakePayment = async () => {
+    setIsPaying(true);
+    try {
+      // Persist the cart total as budgetSpent on the event
+      await updateEvent(eventId, {
+        budgetSpent: filteredData.total,
+      } as any);
+      await refreshEvents();
+      toast.info("Payment gateway coming soon! Budget bar has been updated.");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to update budget data.");
+    } finally {
+      setIsPaying(false);
+    }
+  };
   const getStartingPrice = (group: HotelCartGroup) => {
     if (group.rooms && group.rooms.length > 0) {
       const prices = group.rooms.map((r) => r.locked_price);
@@ -453,11 +471,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </button>
 
             <button
-              onClick={() => toast.info("Payment gateway coming soon!")}
-              disabled={filteredData.total === 0}
+              onClick={handleMakePayment}
+              disabled={filteredData.total === 0 || isPaying}
               className="w-full py-3 bg-white border border-neutral-200 text-neutral-900 font-bold rounded-xl hover:bg-neutral-50 transition-all disabled:opacity-50 active:scale-[0.98] text-sm"
             >
-              Make Payment
+              {isPaying ? "Updating..." : "Make Payment"}
             </button>
           </div>
         )}

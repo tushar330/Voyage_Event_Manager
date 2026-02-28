@@ -17,9 +17,10 @@ export default function CartPage() {
   const eventId = params.eventId as string;
   const { cart, loading, removeFromCart, updateCartItem, fetchCart } =
     useCart();
-  const { updateEvent } = useEvents();
+  const { updateEvent, events, refreshEvents } = useEvents();
   const [activeTab, setActiveTab] = useState<Tab>("cart");
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
     if (eventId) {
@@ -113,27 +114,46 @@ export default function CartPage() {
     try {
       setIsFinalizing(true);
 
+      const currentEvent = events.find((e) => e.id === eventId);
+      const existingRooms = currentEvent?.roomsInventory || [];
+
       // 1. Gather all rooms from the cart
-      const roomsToInventory = (cart?.hotels || []).flatMap((group) =>
+      const newRooms = (cart?.hotels || []).flatMap((group) =>
         (group.rooms || [])
           .filter((r) => ["cart", "approved"].includes(r.status || "cart"))
           .map((r) => ({
             room_offer_id: r.room_details?.id || r.id,
             room_name: r.room_details?.name || "Room",
             available: r.quantity,
+            total: r.quantity,
             max_capacity: r.room_details?.capacity || 2,
             price_per_room: r.locked_price,
           })),
       );
 
-      if (roomsToInventory.length === 0) {
+      if (newRooms.length === 0) {
         toast.error("No rooms in cart to finalize.");
         return;
       }
 
+      // Merge avoiding duplicates (simple merge for now, prioritizing new)
+      const mergedRooms = [...existingRooms];
+      newRooms.forEach((newRoom) => {
+        const index = mergedRooms.findIndex(
+          (er) => er.room_offer_id === newRoom.room_offer_id
+        );
+        if (index >= 0) {
+          // Add to existing inventory instead of overwriting
+          mergedRooms[index].total += newRoom.total;
+          mergedRooms[index].available += newRoom.available;
+        } else {
+          mergedRooms.push(newRoom);
+        }
+      });
+
       // 2. Update Event
       await updateEvent(eventId, {
-        roomsInventory: roomsToInventory,
+        roomsInventory: mergedRooms,
       });
 
       toast.success("Event finalized successfully! Rooms added to event.");
@@ -463,11 +483,25 @@ export default function CartPage() {
                     </button>
 
                     <button
-                      onClick={() => toast.info("Payment gateway coming soon!")}
-                      disabled={filteredData.total === 0}
+                      onClick={async () => {
+                        setIsPaying(true);
+                        try {
+                          // Persist cart total as budgetSpent so dashboard bar updates
+                          await updateEvent(eventId, {
+                            budgetSpent: filteredData.total,
+                          } as any);
+                          await refreshEvents();
+                          toast.info("Payment gateway coming soon! Budget bar has been updated.");
+                        } catch (e) {
+                          toast.error("Failed to update budget data.");
+                        } finally {
+                          setIsPaying(false);
+                        }
+                      }}
+                      disabled={filteredData.total === 0 || isPaying}
                       className="w-full py-3 bg-white border border-neutral-200 text-neutral-900 font-bold rounded-xl hover:bg-neutral-50 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
-                      Make Payment
+                      {isPaying ? "Updating..." : "Make Payment"}
                     </button>
 
                     <button
