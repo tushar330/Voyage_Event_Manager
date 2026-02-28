@@ -22,10 +22,53 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   const { cart, loading, removeFromCart, updateCartItem, fetchCart } =
     useCart();
-  const { updateEvent, refreshEvents } = useEvents();
+  const { updateEvent, refreshEvents, events } = useEvents();
   const [activeTab, setActiveTab] = useState<Tab>("cart");
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const [finalizedCartSnapshot, setFinalizedCartSnapshot] = useState<string | null>(null);
+
+  const currentEvent = events.find((e) => e.id === eventId);
+
+  const getCartFingerprint = (c: typeof cart) =>
+    JSON.stringify(
+      c?.hotels?.map((g) => [
+        ...g.rooms.map((r) => `${r.id}:${r.quantity}`),
+        ...g.banquets.map((b) => `${b.id}:${b.quantity}`),
+        ...g.catering.map((cc) => `${cc.id}:${cc.quantity}`),
+      ]) ?? []
+    );
+
+  // isFinalized is true if all valid rooms in the cart are already in the event's roomsInventory
+  const isFinalized = useMemo(() => {
+    if (!cart || !currentEvent || !currentEvent.roomsInventory) return false;
+    
+    // Get all rooms that need to be finalized
+    const roomsToFinalize = (cart.hotels || []).flatMap((group) =>
+      (group.rooms || [])
+        .filter((r) => ["cart", "approved"].includes(r.status || "cart"))
+    );
+
+    // If there are no physical rooms to finalize, we still want to allow payment if there are flights/transfers
+    if (roomsToFinalize.length === 0) {
+      const hasFlights = (cart.flights || []).filter(r => ["cart", "approved"].includes(r.status || "cart")).length > 0;
+      const hasTransfers = (cart.transfers || []).filter(r => ["cart", "approved"].includes(r.status || "cart")).length > 0;
+      
+      if (!hasFlights && !hasTransfers) return false; 
+      
+      return finalizedCartSnapshot !== null && finalizedCartSnapshot === getCartFingerprint(cart);
+    }
+
+    // Check if every room in the cart exists in the inventory with at least the requested quantity
+    return roomsToFinalize.every((cartRoom) => {
+      const targetOfferId = cartRoom.room_details?.id || cartRoom.id;
+      const matchingInventory = currentEvent.roomsInventory?.find(
+        (inv) => inv.room_offer_id === targetOfferId
+      );
+      
+      return matchingInventory && matchingInventory.total >= cartRoom.quantity;
+    });
+  }, [cart, currentEvent, finalizedCartSnapshot, getCartFingerprint]);
 
   // Fetch cart when drawer opens
   React.useEffect(() => {
@@ -82,6 +125,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       targetStatus.includes(i.status || "cart"),
     );
 
+    // Filter Transfers
+    const transfers = (cart.transfers || []).filter((i) =>
+      targetStatus.includes(i.status || "cart"),
+    );
+
     // Calculate Total
     let total = 0;
     hotels.forEach((group) => {
@@ -97,6 +145,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     flights.forEach((item) => {
       total += item.locked_price * item.quantity;
     });
+    transfers.forEach((item) => {
+      total += item.locked_price * item.quantity;
+    });
 
     return { hotels, flights, total };
   }, [cart, activeTab]);
@@ -104,9 +155,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const handleFinalize = async () => {
     try {
       setIsFinalizing(true);
+      const existingRooms = currentEvent?.roomsInventory || [];
 
       // 1. Gather all rooms from the cart
-      const roomsToInventory = (cart?.hotels || []).flatMap((group) =>
+      const newRooms = (cart?.hotels || []).flatMap((group) =>
         (group.rooms || [])
           .filter((r) => ["cart", "approved"].includes(r.status || "cart"))
           .map((r) => ({
@@ -119,16 +171,45 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           })),
       );
 
-      if (roomsToInventory.length === 0) {
-        toast.error("No rooms in cart to finalize.");
-        return;
+      // Merge avoiding duplicates
+      const mergedRooms = [...existingRooms];
+      if (newRooms.length > 0) {
+        newRooms.forEach((newRoom) => {
+          const index = mergedRooms.findIndex(
+            (er) => er.room_offer_id === newRoom.room_offer_id
+          );
+          if (index >= 0) {
+            mergedRooms[index].total += newRoom.total;
+            mergedRooms[index].available += newRoom.available;
+          } else {
+            mergedRooms.push(newRoom);
+          }
+        });
       }
 
       // 2. Update Event
-      await updateEvent(eventId, {
-        roomsInventory: roomsToInventory,
-      });
+      if (newRooms.length > 0) {
+        await updateEvent(eventId, {
+          roomsInventory: mergedRooms,
+        });
+      }
 
+      // 3. Lock flights and transfers
+      const itemsToLock = [
+        ...(cart?.flights || []).filter(f => f.status === "cart").map(f => f.id),
+        ...(cart?.transfers || []).filter(t => t.status === "cart").map(t => t.id)
+      ];
+
+      for (const itemId of itemsToLock) {
+        await updateCartItem(eventId, itemId, { status: "approved" });
+      }
+
+      await refreshEvents();
+      if (itemsToLock.length > 0) {
+        await fetchCart(eventId);
+      }
+
+      setFinalizedCartSnapshot(getCartFingerprint(cart));
       toast.success("Event finalized successfully!");
       onClose();
     } catch (error) {
@@ -351,8 +432,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -367,8 +448,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -383,8 +464,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -408,8 +489,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -487,8 +568,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 interface CartItemRowProps {
   item: CartItemDetail;
   activeTab: Tab;
-  onRemove: () => void;
-  onUpdate: (qty: number) => void;
+  onRemove?: () => void;
+  onUpdate?: (qty: number) => void;
   onMoveToCart: () => void;
   hideImage?: boolean;
 }
@@ -545,23 +626,25 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
         </div>
         <div className="flex items-center flex-wrap gap-3 mt-3">
           {/* Quantity Control */}
-          <div className="flex items-center bg-white border border-neutral-200 rounded-lg p-1 shadow-sm">
-            <button
-              onClick={() => onUpdate(Math.max(1, item.quantity - 1))}
-              className="px-2 py-0.5 text-neutral-500 hover:text-blue-600 transition-colors"
-            >
-              -
-            </button>
-            <span className="w-6 text-center text-xs font-black text-neutral-700">
-              {item.quantity}
-            </span>
-            <button
-              onClick={() => onUpdate(item.quantity + 1)}
-              className="px-2 py-0.5 text-neutral-500 hover:text-blue-600 transition-colors"
-            >
-              +
-            </button>
-          </div>
+          {onUpdate && (
+            <div className="flex items-center bg-white border border-neutral-200 rounded-lg p-1 shadow-sm">
+              <button
+                onClick={() => onUpdate(Math.max(1, item.quantity - 1))}
+                className="px-2 py-0.5 text-neutral-500 hover:text-blue-600 transition-colors"
+              >
+                -
+              </button>
+              <span className="w-6 text-center text-xs font-black text-neutral-700">
+                {item.quantity}
+              </span>
+              <button
+                onClick={() => onUpdate(item.quantity + 1)}
+                className="px-2 py-0.5 text-neutral-500 hover:text-blue-600 transition-colors"
+              >
+                +
+              </button>
+            </div>
+          )}
 
           {/* Status Badge */}
           <span
@@ -600,25 +683,27 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
       </div>
 
       {/* Remove Button - Always visible slightly, fully on hover */}
-      <button
-        onClick={onRemove}
-        className="text-neutral-400 hover:text-red-500 transition-colors absolute top-2 right-2 p-1.5 hover:bg-red-50 rounded-full bg-white/50 hover:bg-white border border-transparent hover:border-red-100 shadow-sm"
-        title="Remove item"
-      >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="text-neutral-400 hover:text-red-500 transition-colors absolute top-2 right-2 p-1.5 hover:bg-red-50 rounded-full bg-white/50 hover:bg-white border border-transparent hover:border-red-100 shadow-sm"
+          title="Remove item"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 };

@@ -24,6 +24,8 @@ export default function CartPage() {
   // Tracks the cart state at the moment of last successful finalization
   const [finalizedCartSnapshot, setFinalizedCartSnapshot] = useState<string | null>(null);
 
+  const currentEvent = events.find((e) => e.id === eventId);
+
   const getCartFingerprint = (c: typeof cart) =>
     JSON.stringify(
       c?.hotels?.map((g) => [
@@ -33,10 +35,39 @@ export default function CartPage() {
       ]) ?? []
     );
 
-  // isFinalized is true only when the current cart matches the snapshot taken at last finalize
-  const isFinalized =
-    finalizedCartSnapshot !== null &&
-    finalizedCartSnapshot === getCartFingerprint(cart);
+  // isFinalized is true if all valid rooms in the cart are already in the event's roomsInventory
+  const isFinalized = useMemo(() => {
+    if (!cart || !currentEvent || !currentEvent.roomsInventory) return false;
+    
+    // Get all rooms that need to be finalized
+    const roomsToFinalize = (cart.hotels || []).flatMap((group) =>
+      (group.rooms || [])
+        .filter((r) => ["cart", "approved"].includes(r.status || "cart"))
+    );
+
+    // If there are no physical rooms to finalize, we still want to allow payment if there are flights/transfers
+    if (roomsToFinalize.length === 0) {
+      const hasFlights = (cart.flights || []).filter(r => ["cart", "approved"].includes(r.status || "cart")).length > 0;
+      const hasTransfers = (cart.transfers || []).filter(r => ["cart", "approved"].includes(r.status || "cart")).length > 0;
+      // If there are flights/transfers but no rooms, they can skip finalize. Let's just say it's finalized if snapshot matches (for ux) 
+      // or true if there's literally no finalize-able item.
+      if (!hasFlights && !hasTransfers) return false; 
+      
+      // If they only have flights/cabs, they technically don't need to "Finalize" inventory. 
+      // We will rely on the snapshot logic for pure flight/cab carts to maintain the UX toggle.
+      return finalizedCartSnapshot !== null && finalizedCartSnapshot === getCartFingerprint(cart);
+    }
+
+    // Check if every room in the cart exists in the inventory with at least the requested quantity
+    return roomsToFinalize.every((cartRoom) => {
+      const targetOfferId = cartRoom.room_details?.id || cartRoom.id;
+      const matchingInventory = currentEvent.roomsInventory?.find(
+        (inv) => inv.room_offer_id === targetOfferId
+      );
+      
+      return matchingInventory && matchingInventory.total >= cartRoom.quantity;
+    });
+  }, [cart, currentEvent, finalizedCartSnapshot, getCartFingerprint]);
 
   useEffect(() => {
     if (eventId) {
@@ -197,6 +228,21 @@ export default function CartPage() {
         roomsInventory: mergedRooms,
       });
 
+      // 3. Lock flights and transfers
+      const itemsToLock = [
+        ...(cart?.flights || []).filter(f => f.status === "cart").map(f => f.id),
+        ...(cart?.transfers || []).filter(t => t.status === "cart").map(t => t.id)
+      ];
+
+      for (const itemId of itemsToLock) {
+        await updateCartItem(eventId, itemId, { status: "approved" });
+      }
+
+      await refreshEvents();
+      if (itemsToLock.length > 0) {
+        await fetchCart(eventId);
+      }
+
       // Capture the fingerprint of the cart at this moment so isFinalized stays true
       // until any cart item changes
       setFinalizedCartSnapshot(getCartFingerprint(cart));
@@ -204,6 +250,60 @@ export default function CartPage() {
     } catch (error) {
       console.error("Finalize error:", error);
       toast.error("Failed to finalize event.");
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleUnlock = async () => {
+    if (!currentEvent || !cart) return;
+    try {
+      setIsFinalizing(true);
+      const existingRooms = [...(currentEvent.roomsInventory || [])];
+      
+      const cartRooms = (cart.hotels || []).flatMap((group) =>
+        (group.rooms || [])
+          .filter((r) => ["cart", "approved"].includes(r.status || "cart"))
+          .map((r) => ({
+            id: r.room_details?.id || r.id,
+            quantity: r.quantity
+          }))
+      );
+
+      cartRooms.forEach(cartRoom => {
+        const index = existingRooms.findIndex(er => er.room_offer_id === cartRoom.id);
+        if (index >= 0) {
+          existingRooms[index].total = Math.max(0, existingRooms[index].total - cartRoom.quantity);
+          existingRooms[index].available = Math.max(0, existingRooms[index].available - cartRoom.quantity);
+        }
+      });
+
+      // Filter out any rooms that have 0 total left to keep DB clean
+      const cleanedRooms = existingRooms.filter(r => r.total > 0);
+
+      await updateEvent(eventId, {
+        roomsInventory: cleanedRooms,
+      });
+
+      // Unlock flights and transfers
+      const itemsToUnlock = [
+        ...(cart.flights || []).filter(f => f.status === "approved").map(f => f.id),
+        ...(cart.transfers || []).filter(t => t.status === "approved").map(t => t.id)
+      ];
+
+      for (const itemId of itemsToUnlock) {
+        await updateCartItem(eventId, itemId, { status: "cart" });
+      }
+
+      await refreshEvents();
+      if (itemsToUnlock.length > 0) {
+        await fetchCart(eventId);
+      }
+
+      setFinalizedCartSnapshot(null);
+      toast.success("Cart unlocked for editing");
+    } catch (e) {
+      toast.error("Failed to unlock cart");
     } finally {
       setIsFinalizing(false);
     }
@@ -437,8 +537,8 @@ export default function CartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -462,8 +562,8 @@ export default function CartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -509,10 +609,11 @@ export default function CartPage() {
                   <div className="space-y-3">
                     {isFinalized ? (
                       <button
-                        onClick={() => setFinalizedCartSnapshot(null)}
-                        className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg hover:bg-amber-600 hover:shadow-xl transition-all transform active:scale-[0.98]"
+                        onClick={handleUnlock}
+                        disabled={isFinalizing}
+                        className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg hover:bg-amber-600 hover:shadow-xl transition-all transform active:scale-[0.98] disabled:opacity-50"
                       >
-                        🔓 Unlock &amp; Edit Cart
+                        {isFinalizing ? "Unlocking..." : "🔓 Unlock & Edit Cart"}
                       </button>
                     ) : (
                       <button
@@ -540,8 +641,10 @@ export default function CartPage() {
                           filteredData.transfers.forEach(t => cartItemIds.push(t.id));
 
                           // Persist cart total as budgetSpent so dashboard bar updates
+                          // Accumulate with existing spent instead of overwriting
+                          const currentSpent = currentEvent?.budgetSpent || 0;
                           await updateEvent(eventId, {
-                            budgetSpent: filteredData.grandTotal,
+                            budgetSpent: currentSpent + filteredData.grandTotal,
                           } as any);
 
                           // Clear the cart using the bulk removed backend logic for each hotel

@@ -17,41 +17,17 @@ import Link from "next/link";
 export default function TboNegotiationPage() {
   const params = useParams();
   const token = params.token as string;
-  const [eventId, setEventId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Resolve token to eventId (In real app, backend does this on initial fetch)
-    const storedEventId = localStorage.getItem(`token_map_${token}`);
-    if (storedEventId) {
-      setEventId(storedEventId);
-    } else {
-      toast.error("Invalid or expired negotiation link.");
-    }
-  }, [token]);
-
-  if (!eventId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-gray-900">
-            Loading Negotiation...
-          </h2>
-          <p className="text-gray-500 mt-2">Verifying secure link</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <ProtectedRoute requiredRole={UserRole.TBO_AGENT}>
-      <NegotiationProvider eventId={eventId}>
-        <TboNegotiationContent />
+      <NegotiationProvider>
+        <TboNegotiationContent token={token} />
       </NegotiationProvider>
     </ProtectedRoute>
   );
 }
 
-function TboNegotiationContent() {
+function TboNegotiationContent({ token }: { token: string }) {
   const router = useRouter();
   const {
     items,
@@ -63,23 +39,27 @@ function TboNegotiationContent() {
     updateItemMessage,
     submitCounterOffer,
     sendMessage,
-    refreshState,
+    loadSessionByToken,
   } = useNegotiation();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Refresh state on mount
+  // Load session from backend on mount
   useEffect(() => {
-    refreshState();
-  }, []);
+    const load = async () => {
+      setLoading(true);
+      await loadSessionByToken(token);
+      setLoading(false);
+    };
+    load();
+  }, [token]);
 
   const handleSubmitCounter = async () => {
     if (status === "waiting_for_agent" || status === "locked") return;
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // TBO acts as the "Hotel" role in the current frontend context shape
-      submitCounterOffer();
+      await submitCounterOffer();
       toast.success("Proposal sent back to Booking Agent!");
       setTimeout(() => router.push("/tbo-admin"), 1500);
     } catch (error) {
@@ -89,12 +69,41 @@ function TboNegotiationContent() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-gray-900">
+            Loading Negotiation...
+          </h2>
+          <p className="text-gray-500 mt-2">Fetching session from server</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-gray-900">
+            Session Not Found
+          </h2>
+          <p className="text-gray-500 mt-2">This negotiation link may be invalid or expired.</p>
+          <Link href="/tbo-admin" className="text-blue-600 hover:underline mt-4 inline-block">
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const totalOffer = items.reduce(
     (sum, item) => sum + item.currentPrice * item.quantity,
     0,
   );
   
-  // What the booking agent requested
   const targetTotal = items.reduce(
     (sum, item) =>
       sum + (item.targetPrice || item.originalPrice) * item.quantity,
@@ -153,9 +162,7 @@ function TboNegotiationContent() {
               Profit Margin Analysis
             </h3>
 
-            {/* Visual Bar Chart */}
             <div className="space-y-4">
-              {/* Agent's Target Bar */}
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600">Booking Agent's Desired Total</span>
@@ -165,7 +172,6 @@ function TboNegotiationContent() {
                 </div>
               </div>
 
-              {/* TBO's Current Offer Bar */}
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600">Your Current Offer Total (to Agent)</span>
@@ -191,8 +197,8 @@ function TboNegotiationContent() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        {/* Negotiation Table — Full Width */}
+        <div className="space-y-6 mb-8">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                 <h3 className="text-lg font-bold text-gray-900">
@@ -200,14 +206,14 @@ function TboNegotiationContent() {
                 </h3>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    status === "waiting_for_tbo_agent" || status === "sent_to_tbo"
+                    status === "waiting_for_tbo_agent"
                       ? "bg-yellow-100 text-yellow-800"
                       : status === "locked"
                         ? "bg-green-100 text-green-800"
                         : "bg-blue-100 text-blue-800"
                   }`}
                 >
-                  {status === "sent_to_tbo" ? "Needs Review" : status.replace(/_/g, " ")}
+                  {status === "waiting_for_tbo_agent" ? "Needs Review" : status.replace(/_/g, " ")}
                 </span>
               </div>
               <div className="p-4 bg-yellow-50/50 border-b border-yellow-100 text-sm text-yellow-800">
@@ -220,38 +226,47 @@ function TboNegotiationContent() {
                 onMessageChange={(id, msg) => updateItemMessage(id, msg)}
               />
             </div>
+        </div>
 
-            {/* Negotiation History */}
-            {history?.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                    <div className="p-4 border-b border-neutral-200 bg-gray-50">
-                        <h3 className="text-lg font-bold text-gray-900">History</h3>
-                    </div>
-                    <div className="divide-y divide-gray-200">
-                        {(history || []).map((round) => (
-                            <div key={round.id} className="p-4 hover:bg-gray-50 transition-colors">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${round.author === 'Agent' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                                            {round.author === 'TBO Manager' ? 'TBO Manager' : 'Booking Agent'}
-                                        </span>
-                                        <span className="text-sm text-gray-500 ml-2">
-                                            {new Date(round.timestamp).toLocaleString()}
-                                        </span>
-                                    </div>
-                                    <span className="text-xs font-mono text-gray-400">{round.id}</span>
-                                </div>
-                                <div className="text-sm text-gray-700">
-                                    <p>Total: <span className="font-semibold">₹{round.items.reduce((sum, i) => sum + (round.author === 'Agent' ? (i.targetPrice || i.originalPrice) : i.currentPrice) * i.quantity, 0).toLocaleString()}</span></p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+        {/* Below Table: History (left) | Action + Chat (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Left: History */}
+          <div>
+            {history?.length > 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden h-full">
+                <div className="p-4 border-b border-neutral-200 bg-gray-50">
+                  <h3 className="text-lg font-bold text-gray-900">History</h3>
                 </div>
+                <div className="divide-y divide-gray-200">
+                  {(history || []).map((round) => (
+                    <div key={round.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${round.author === 'Agent' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                            {round.author === 'TBO Manager' ? 'TBO Manager' : 'Booking Agent'}
+                          </span>
+                          <span className="text-sm text-gray-500 ml-2">
+                            {new Date(round.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono text-gray-400">{round.id}</span>
+                      </div>
+                      <div className="text-sm text-gray-700">
+                        <p>Total: <span className="font-semibold">₹{round.items.reduce((sum, i) => sum + (round.author === 'Agent' ? (i.targetPrice || i.originalPrice) : i.currentPrice) * i.quantity, 0).toLocaleString()}</span></p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-8 text-center h-full flex items-center justify-center">
+                <p className="text-gray-400 text-sm">No negotiation history yet</p>
+              </div>
             )}
           </div>
 
-          <div className="lg:col-span-1 space-y-6">
+          {/* Right: Action + Chat stacked */}
+          <div className="space-y-6">
             <ActionPanel
               isAgent={false}
               onSubmitCounter={handleSubmitCounter}

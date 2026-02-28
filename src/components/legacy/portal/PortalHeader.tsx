@@ -1,20 +1,20 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
 import LogoutButton from "@/components/legacy/auth/LogoutButton";
+import { useAuth } from "@/context/AuthContext";
 
 interface PortalHeaderProps {
   eventName: string;
-  headGuestName: string;
 }
 
 export default function PortalHeader({
   eventName,
-  headGuestName,
 }: PortalHeaderProps) {
+  const { user } = useAuth();
   const params = useParams();
   const pathname = usePathname();
   const eventId = params.eventId as string;
@@ -139,11 +139,11 @@ export default function PortalHeader({
               >
                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
-                    {headGuestName ? headGuestName.charAt(0).toUpperCase() : 'H'}
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'H'}
                   </span>
                 </div>
                 <span className="text-white text-sm font-medium hidden md:block">
-                  {headGuestName}
+                  {user?.name || 'Head Guest'}
                 </span>
                 <svg 
                   className={`w-4 h-4 text-white transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 
@@ -158,9 +158,6 @@ export default function PortalHeader({
               {/* Dropdown Menu */}
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-neutral-100 py-2 z-50 overflow-hidden transform opacity-100 scale-100">
-                  <div className="px-4 py-2 text-xs font-semibold text-corporate-blue-100 border-b border-neutral-100 mb-1 leading-snug">
-                    {eventName}
-                  </div>
                   <div className="px-3 pt-2 pb-1">
                     <div className="w-full flex justify-center [&>button]:w-full [&>button]:justify-center">
                       <LogoutButton />

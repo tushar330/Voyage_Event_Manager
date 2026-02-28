@@ -150,7 +150,12 @@ export function EventProvider({ children }: { children: ReactNode }) {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to update event");
+        let errMsg = "Failed to update event";
+        try {
+          const errData = await res.json();
+          if (errData.error) errMsg = errData.error;
+        } catch(e) {}
+        throw new Error(errMsg);
       }
 
       await fetchEvents();

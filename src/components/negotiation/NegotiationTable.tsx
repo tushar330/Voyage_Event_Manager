@@ -52,37 +52,43 @@ export const NegotiationTable: React.FC<NegotiationTableProps> = ({
           <tr>
             <th
               scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[180px]"
             >
               Item
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]"
             >
               Type
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]"
             >
               Quantity
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]"
+            >
+              Original Price
+            </th>
+            <th
+              scope="col"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[130px]"
             >
               {isAgent ? "Target Price" : "Requested Price"}
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]"
             >
               {isAgent ? "Current Offer" : "Your Offer"}
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]"
             >
               Variance
             </th>
@@ -134,47 +140,50 @@ export const NegotiationTable: React.FC<NegotiationTableProps> = ({
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {item.quantity}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                  ₹{(item.originalPrice ?? 0).toLocaleString()}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                   {/* Agent can edit their target price. Hotel sees it as read-only requested price */}
                   {isAgent ? (
-                    <div className="relative rounded-md shadow-sm max-w-[120px]">
+                    <div className="relative rounded-md shadow-sm w-[130px]">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                        <span className="text-gray-500 sm:text-xs">₹</span>
+                        <span className="text-gray-500 text-xs">₹</span>
                       </div>
                       <input
                         type="number"
-                        className="block w-full rounded-md border-0 py-1.5 pl-6 pr-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-xs sm:leading-6"
+                        className="block w-full rounded-md border-0 py-1.5 pl-5 pr-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 text-sm leading-6"
                         value={localPrices[item.id] ?? item.targetPrice}
                         onChange={(e) => handlePriceChangeLocal(item.id, e.target.value)}
                       />
                     </div>
                   ) : (
-                    `₹${(item.targetPrice || item.originalPrice).toLocaleString()}`
+                    <span className="font-medium">₹{(item.targetPrice || item.originalPrice).toLocaleString()}</span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {isAgent ? (
                     // Agent view: Read-only current offer (from Hotel) or Original if not yet countered
-                    `₹${item.currentPrice.toLocaleString()}`
+                    <span className="font-medium">₹{(item.currentPrice ?? 0).toLocaleString()}</span>
                   ) : (
                     // Hotel view: Editable input for Counter Offer
-                    <div className="relative rounded-md shadow-sm max-w-[120px]">
+                    <div className="relative rounded-md shadow-sm w-[130px]">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                        <span className="text-gray-500 sm:text-xs">₹</span>
+                        <span className="text-gray-500 text-xs">₹</span>
                       </div>
                       <input
                         type="number"
-                        className="block w-full rounded-md border-0 py-1.5 pl-6 pr-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-xs sm:leading-6"
-                        value={localPrices[item.id] ?? item.currentPrice}
+                        className="block w-full rounded-md border-0 py-1.5 pl-5 pr-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 text-sm leading-6"
+                        value={localPrices[item.id] ?? (item.currentPrice ?? 0)}
                         onChange={(e) => handlePriceChangeLocal(item.id, e.target.value)}
                       />
                     </div>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                   <VarianceIndicator
-                    current={item.currentPrice}
-                    target={isAgent ? item.targetPrice : item.originalPrice}
+                    current={item.currentPrice ?? 0}
+                    target={isAgent ? (item.targetPrice ?? 0) : (item.originalPrice ?? 0)}
                   />
                 </td>
               </tr>

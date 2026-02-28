@@ -68,7 +68,7 @@ function HotelNegotiationContent() {
   }, []);
 
   const handleSubmitCounter = async () => {
-    if (status === "countered_by_hotel" || status === "locked") return;
+    if (status === "locked") return;
     setIsSubmitting(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));

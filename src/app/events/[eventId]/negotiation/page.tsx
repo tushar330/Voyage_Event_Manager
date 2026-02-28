@@ -10,6 +10,7 @@ import { NegotiationItem } from "@/types/negotiation";
 import { Toaster, toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { useEvents } from "@/context/EventContext";
+import { useAuth } from "@/context/AuthContext";
 import {
   NegotiationProvider,
   useNegotiation,
@@ -35,8 +36,10 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
     status,
     expiry,
     shareToken,
+    sessionId,
     history,
     syncItemsFromCart,
+    initNegotiation,
     updateItemPrice,
     updateItemMessage,
     sendMessage,
@@ -51,13 +54,27 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
   const currentEvent = events.find((e) => e.id === eventId);
   /* New Hook usage End */
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  // Add Auth Hook to wait for token
+  const { isLoading: authLoading, token: authToken } = useAuth();
 
-  // Refresh state on mount to ensure we have latest from localStorage
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Refresh state on mount, but wait for auth token first
   useEffect(() => {
-    refreshState();
-  }, []);
+    if (!authLoading && authToken) {
+      refreshState();
+    }
+  }, [authLoading, authToken, refreshState]);
+
+  // Poll for updates every 30 seconds when session is active
+
+  useEffect(() => {
+    if (!shareToken) return;
+    const interval = setInterval(() => {
+      refreshState();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [shareToken]);
 
   // Always force-refresh cart when navigating to negotiation page
   useEffect(() => {
@@ -136,21 +153,37 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
     });
   }, [cart, cartLoading, currentEvent, syncItemsFromCart]);
 
-  useEffect(() => {
-    if (shareToken) {
-      setShareUrl(`${window.location.origin}/negotiation/${shareToken}`);
+  // Start negotiation (Agent clicks "Start Negotiation")
+  const handleStartNegotiation = async () => {
+    if (!items.length) {
+      toast.error("No items to negotiate");
+      return;
     }
-  }, [shareToken]);
-
-  const handleSendToHotel = async () => {
-    if (status === "sent_to_tbo") return;
     setIsSubmitting(true);
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      sendToHotel();
+      const eventDetails = {
+        name: currentEvent?.name || "Event",
+        date: currentEvent?.startDate
+          ? new Date(currentEvent.startDate).toLocaleDateString()
+          : "TBD",
+        location: currentEvent?.location || "TBD",
+        totalBudget: items.reduce((s, i) => s + (i.targetPrice || i.originalPrice) * i.quantity, 0),
+      };
+      await initNegotiation(items, eventDetails);
+    } catch {
+      toast.error("Failed to start negotiation");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSendToHotel = async () => {
+    if (status === "waiting_for_tbo_agent") return;
+    setIsSubmitting(true);
+    try {
+      await sendToHotel();
     } catch (error) {
-      toast.error("Failed to send to hotel");
+      toast.error("Failed to send to TBO Manager");
     } finally {
       setIsSubmitting(false);
     }
@@ -166,42 +199,15 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
 
     setIsSubmitting(true);
     try {
-      // Persist the negotiated prices back to the genuine backend cart
-      await Promise.all(
-        items.map((item) =>
-          updateCartItem(eventId, item.id, { locked_price: item.currentPrice })
-        )
-      );
+      // lockDeal now calls backend which updates cart items and locks session
+      await lockDeal();
 
-      // Calculate total negotiated budget
-      const negotiatedTotal = items.reduce(
-        (sum, item) => sum + item.currentPrice * item.quantity,
-        0
-      );
-
-      // Update the event's budgetSpent
-      if (currentEvent) {
-        await updateEvent(eventId, {
-          ...currentEvent,
-          budgetSpent: negotiatedTotal
-        });
-      }
-
-      lockDeal();
-      toast.success("Deal Locked!");
       router.push(`/events/${eventId}/cart`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to lock deal and update cart prices");
+      toast.error(error.message || "Failed to lock deal");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const copyShareLink = () => {
-    if (shareUrl) {
-      navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copied to clipboard!");
     }
   };
 
@@ -264,62 +270,44 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Share Link Card - Only show if initiated */}
-            {shareUrl && (
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-blue-900">
-                    Share with TBO Manager
-                  </h3>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Send this link to the TBO Manager to start negotiating.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <code className="bg-white px-3 py-1.5 rounded border border-blue-200 text-xs text-blue-800 font-mono hidden sm:block">
-                    {shareUrl}
-                  </code>
-                  <button
-                    onClick={copyShareLink}
-                    className="text-xs font-bold bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors"
-                  >
-                    Copy Link
-                  </button>
-                </div>
-              </div>
-            )}
+        {/* Negotiation Table Full Width */}
+        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden mb-8">
+          <div className="p-4 border-b border-neutral-200 bg-gray-50 flex justify-between items-center">
+            <h3 className="text-lg font-bold text-gray-900">
+              Items under Negotiation
+            </h3>
+            <button
+              onClick={sessionId ? handleSendToHotel : handleStartNegotiation}
+              disabled={
+                status === "waiting_for_tbo_agent" ||
+                status === "locked" ||
+                isSubmitting ||
+                items.length === 0
+              }
+              className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+            >
+              {isSubmitting
+                ? "Sending..."
+                : !sessionId
+                ? "🚀 Start Negotiation"
+                : status === "waiting_for_tbo_agent"
+                ? "Sent to TBO"
+                : "Send to TBO"}
+            </button>
+          </div>
+          <NegotiationTable
+            items={items}
+            isAgent={true}
+            onPriceChange={(id, price) => updateItemPrice(id, price, true)}
+            onMessageChange={(id, msg) => updateItemMessage(id, msg)}
+          />
+        </div>
 
-            {/* Negotiation Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-              <div className="p-4 border-b border-neutral-200 bg-gray-50 flex justify-between items-center">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Items under Negotiation
-                </h3>
-                <button
-                  onClick={handleSendToHotel}
-                  disabled={
-                    status === "sent_to_tbo" ||
-                    status === "locked" ||
-                    isSubmitting
-                  }
-                  className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {status === "sent_to_tbo"
-                    ? "Sent to TBO"
-                    : "Send to TBO"}
-                </button>
-              </div>
-              <NegotiationTable
-                items={items}
-                isAgent={true}
-                onPriceChange={(id, price) => updateItemPrice(id, price, true)}
-                onMessageChange={(id, msg) => updateItemMessage(id, msg)}
-              />
-            </div>
-
-            {/* Negotiation History */}
+        {/* Bottom Section: History (Left) | Actions & Chat (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Left Column: Negotiation History */}
+          <div className="space-y-6">
             {history?.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
                 <div className="p-4 border-b border-neutral-200 bg-gray-50">
@@ -327,7 +315,7 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
                     Negotiation History
                   </h3>
                 </div>
-                <div className="divide-y divide-gray-200">
+                <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
                   {(history || []).map((round) => (
                     <div
                       key={round.id}
@@ -372,23 +360,31 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
                 </div>
               </div>
             )}
+            
+            {/* If no history, show placeholder or nothing */}
+            {(!history || history.length === 0) && (
+               <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-8 text-center text-gray-500 italic">
+                 Negotiation history will appear here once started.
+               </div>
+            )}
           </div>
 
-          <div className="lg:col-span-1 space-y-6">
-            {/* Actions */}
+          {/* Right Column: Actions and Chat */}
+          <div className="space-y-6 flex flex-col h-full">
             <ActionPanel
               isAgent={true}
               onLockDeal={handleLockDeal}
               isSubmitting={isSubmitting}
-              canLock={status === "countered_by_tbo"}
+              canLock={status === "countered_by_tbo" || status === "waiting_for_agent"}
             />
 
-            {/* Chat */}
-            <ChatBox
-              messages={messages}
-              readOnly={false}
-              onSendMessage={(msg) => sendMessage(msg, "Agent")}
-            />
+            <div className="flex-1 min-h-[400px]">
+              <ChatBox
+                messages={messages}
+                readOnly={false}
+                onSendMessage={(msg) => sendMessage(msg, "Agent")}
+              />
+            </div>
           </div>
         </div>
       </div>

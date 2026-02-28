@@ -26,7 +26,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <h3 className="text-lg font-medium text-gray-900">Remarks & History</h3>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 max-h-96">
+      <div className="flex-1 p-4 overflow-y-auto space-y-4 max-h-96 bg-white shrink-0">
         {messages.length === 0 ? (
           <p className="text-center text-gray-500 text-sm">No remarks yet.</p>
         ) : (
@@ -61,7 +61,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
                 )}
               </div>
               {msg.sender !== "System" && (
-                <span className="text-xs text-gray-400 mt-1">{msg.sender}</span>
+                <span className="text-xs text-gray-400 mt-1">{msg.sender === "Agent" ? "Booking Agent" : msg.sender}</span>
               )}
             </div>
           ))

@@ -44,21 +44,13 @@ export default function PortalDashboard() {
           const guestsData = await guestsRes.json();
           const allocationsData = await allocationsRes.json();
 
-          // Basic logic to calculate stats from real data
-          // This assumes standard response structure. If endpoints return empty/mocked, stats will be 0.
           const guests = guestsData.guests || [];
-          // Filter guests that belong to this head guest's family/group if backend doesn't filter.
-          // For now, assuming backend returns what's relevant or we show all event stats (might need refinement).
-          // Actually, head guest should only see THEIR sub-guests.
-          // The backend `GetGuests` usually returns all guests for the event.
-          // We might need to filter client-side if backend doesn't support ?headGuestId=...
 
           const myGuests = guests.filter(
             (g: any) =>
               g.familyId ===
               guests.find((me: any) => me.id === guestId)?.familyId,
           );
-          // Fallback to all guests if logic is too complex for now, or 0.
 
           // Simplify for "Working" state:
           setStats({

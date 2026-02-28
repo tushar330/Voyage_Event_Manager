@@ -51,14 +51,17 @@ function TboDashboardContent() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to fetch negotiations");
+        // Endpoint may not exist yet — show empty state
+        setSessions([]);
+        return;
       }
 
       const data = await res.json();
       setSessions(data || []);
     } catch (error) {
-      console.error(error);
-      toast.error("Could not load negotiations");
+      // Network error or endpoint doesn't exist — gracefully show empty
+      console.warn("Negotiations endpoint not available yet:", error);
+      setSessions([]);
     } finally {
       setLoading(false);
     }
