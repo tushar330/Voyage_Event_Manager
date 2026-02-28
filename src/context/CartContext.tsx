@@ -23,6 +23,7 @@ interface CartContextType {
   fetchCart: (eventId: string) => Promise<void>;
   addToCart: (eventId: string, data: AddToCartRequest) => Promise<void>;
   removeFromCart: (eventId: string, cartItemId: string) => Promise<void>;
+  removeHotelGroupFromCart: (eventId: string, hotelId: string) => Promise<void>;
   updateCartItem: (
     eventId: string,
     cartItemId: string,
@@ -93,6 +94,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const removeHotelGroupFromCart = async (eventId: string, hotelId: string) => {
+    if (!token) throw new Error("Authentication required");
+    setLoading(true);
+    setError(null);
+    try {
+      await cartApi.removeHotelGroupFromCart(eventId, hotelId, token);
+      await fetchCart(eventId);
+    } catch (err: any) {
+      setError(err.message || "Failed to remove hotel group");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateCartItem = async (
     eventId: string,
     cartItemId: string,
@@ -123,6 +139,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
         fetchCart,
         addToCart,
         removeFromCart,
+        removeHotelGroupFromCart,
         updateCartItem,
         clearCartError,
       }}

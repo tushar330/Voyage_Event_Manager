@@ -81,6 +81,11 @@ export default function EventModal({
       return;
     }
 
+    if (!formData.budget || parseFloat(formData.budget) <= 0) {
+      alert("Please enter a valid Budget greater than ₹0.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       if (event) {
@@ -221,7 +226,7 @@ export default function EventModal({
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-500">
-                      $
+                      ₹
                     </span>
                     <input
                       type="number"
@@ -331,6 +336,8 @@ export default function EventModal({
                 isLoading ||
                 !formData.name ||
                 !formData.location ||
+                !formData.budget ||
+                parseFloat(formData.budget) <= 0 ||
                 !formData.startDate ||
                 !formData.endDate ||
                 !formData.organizer

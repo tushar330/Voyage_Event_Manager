@@ -22,6 +22,7 @@ export interface CartItemDetail {
     status: CartItemStatus;
     quantity: number;
     locked_price: number;
+    tax_and_fees: number;
     notes?: string;
     created_at: string;
 
@@ -55,10 +56,12 @@ export interface AddToCartRequest {
     quantity?: number;   // Default: 1
     notes?: string;
     status?: CartItemStatus;
+    tax_and_fees?: number;
 }
 
 export interface UpdateCartItemRequest {
     quantity?: number;
     notes?: string;
     status?: CartItemStatus;
+    locked_price?: number;
 }

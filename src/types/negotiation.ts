@@ -14,7 +14,7 @@ export interface NegotiationRound {
     id: string; // e.g. "round-1"
     timestamp: string;
     items: NegotiationItem[];
-    author: 'Agent' | 'Hotel';
+    author: 'Agent' | 'TBO Manager' | 'Hotel'; // Keeping 'Hotel' for backward comp with old localstorage if needed
 }
 
 export interface NegotiationDiff {
@@ -27,7 +27,7 @@ export interface NegotiationDiff {
 
 export interface ChatMessage {
     id: string;
-    sender: 'Agent' | 'Hotel' | 'System';
+    sender: 'Agent' | 'TBO Manager' | 'Hotel' | 'System';
     message: string;
     timestamp: string;
 }

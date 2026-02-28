@@ -15,12 +15,28 @@ export default function CartPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
-  const { cart, loading, removeFromCart, updateCartItem, fetchCart } =
+  const { cart, loading, removeFromCart, removeHotelGroupFromCart, updateCartItem, fetchCart } =
     useCart();
   const { updateEvent, events, refreshEvents } = useEvents();
   const [activeTab, setActiveTab] = useState<Tab>("cart");
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  // Tracks the cart state at the moment of last successful finalization
+  const [finalizedCartSnapshot, setFinalizedCartSnapshot] = useState<string | null>(null);
+
+  const getCartFingerprint = (c: typeof cart) =>
+    JSON.stringify(
+      c?.hotels?.map((g) => [
+        ...g.rooms.map((r) => `${r.id}:${r.quantity}`),
+        ...g.banquets.map((b) => `${b.id}:${b.quantity}`),
+        ...g.catering.map((cc) => `${cc.id}:${cc.quantity}`),
+      ]) ?? []
+    );
+
+  // isFinalized is true only when the current cart matches the snapshot taken at last finalize
+  const isFinalized =
+    finalizedCartSnapshot !== null &&
+    finalizedCartSnapshot === getCartFingerprint(cart);
 
   useEffect(() => {
     if (eventId) {
@@ -36,7 +52,7 @@ export default function CartPage() {
   // }, [cart]);
 
   const filteredData = useMemo(() => {
-    if (!cart) return { hotels: [], flights: [], transfers: [], total: 0 };
+    if (!cart) return { hotels: [], flights: [], transfers: [], total: 0, totalTaxesAndFees: 0, grandTotal: 0 };
 
     const targetStatus =
       activeTab === "cart" ? ["cart", "approved", "booked"] : ["wishlist"];
@@ -90,25 +106,50 @@ export default function CartPage() {
 
     // Calculate Total
     let total = 0;
+    let totalTaxesAndFees = 0;
     hotels.forEach((group) => {
       [...group.rooms, ...group.banquets, ...group.catering].forEach((item) => {
         total += item.locked_price * item.quantity;
+        totalTaxesAndFees += (item.tax_and_fees || 0);
       });
       if (group.hotel_wishlist_item) {
         total +=
           group.hotel_wishlist_item.locked_price *
           group.hotel_wishlist_item.quantity;
+        totalTaxesAndFees += (group.hotel_wishlist_item.tax_and_fees || 0);
       }
     });
     flights.forEach((item) => {
       total += item.locked_price * item.quantity;
+      totalTaxesAndFees += (item.tax_and_fees || 0);
     });
     transfers.forEach((item) => {
       total += item.locked_price * item.quantity;
+      totalTaxesAndFees += (item.tax_and_fees || 0);
     });
+    
+    const grandTotal = total + totalTaxesAndFees;
 
-    return { hotels, flights, transfers, total };
+    return { hotels, flights, transfers, total, totalTaxesAndFees, grandTotal };
   }, [cart, activeTab]);
+
+  const handleRemoveHotelGroup = async (group: HotelCartGroup) => {
+    try {
+      setIsFinalizing(true); // Reuse the loading state briefly to disable buttons
+      
+      const hotelId = group.hotel_details?.id;
+      if (!hotelId) {
+        throw new Error("Hotel ID missing");
+      }
+
+      await removeHotelGroupFromCart(eventId, hotelId);
+      toast.success("Hotel and its selections removed from cart");
+    } catch (e: any) {
+      toast.error("Failed to remove all hotel items");
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
 
   const handleFinalize = async () => {
     try {
@@ -156,9 +197,10 @@ export default function CartPage() {
         roomsInventory: mergedRooms,
       });
 
-      toast.success("Event finalized successfully! Rooms added to event.");
-      // Optional: Redirect or refresh
-      setTimeout(() => router.push(`/events/${eventId}`), 1000);
+      // Capture the fingerprint of the cart at this moment so isFinalized stays true
+      // until any cart item changes
+      setFinalizedCartSnapshot(getCartFingerprint(cart));
+      toast.success("Selection finalized! You can now make the payment.");
     } catch (error) {
       console.error("Finalize error:", error);
       toast.error("Failed to finalize event.");
@@ -306,40 +348,31 @@ export default function CartPage() {
                         <p className="text-sm text-neutral-500">
                           {group.hotel_details?.location}
                         </p>
-                        <p className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                          Starts from ₹
-                          {getStartingPrice(group).toLocaleString()}
-                        </p>
+                        <div className="flex items-center gap-4">
+                          <p className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            Starts from ₹
+                            {getStartingPrice(group).toLocaleString()}
+                          </p>
+                          <button
+                            onClick={() => !isFinalized && handleRemoveHotelGroup(group)}
+                            disabled={isFinalized}
+                            className={`transition-colors p-2 rounded-full ${
+                              isFinalized
+                                ? "text-neutral-200 cursor-not-allowed"
+                                : "text-neutral-400 hover:text-red-500 hover:bg-neutral-200"
+                            }`}
+                            title={isFinalized ? "Re-finalize to make changes" : "Remove entire hotel and selections"}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="p-6 space-y-6">
-                    {/* Hotel Wishlist Item */}
-                    {group.hotel_wishlist_item && (
-                      <CartItemRow
-                        item={group.hotel_wishlist_item}
-                        activeTab={activeTab}
-                        onRemove={() =>
-                          removeFromCart(eventId, group.hotel_wishlist_item!.id)
-                        }
-                        onUpdate={(qty) =>
-                          updateCartItem(
-                            eventId,
-                            group.hotel_wishlist_item!.id,
-                            { quantity: qty },
-                          )
-                        }
-                        onMoveToCart={() =>
-                          updateCartItem(
-                            eventId,
-                            group.hotel_wishlist_item!.id,
-                            { status: "cart" },
-                          )
-                        }
-                        hideImage={true}
-                      />
-                    )}
 
                     {/* Rooms */}
                     {(group.rooms || []).map((item) => (
@@ -347,8 +380,8 @@ export default function CartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -363,8 +396,8 @@ export default function CartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -379,8 +412,8 @@ export default function CartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
-                        onRemove={() => removeFromCart(eventId, item.id)}
-                        onUpdate={(qty) =>
+                        onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
+                        onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
                         }
                         onMoveToCart={() =>
@@ -458,7 +491,7 @@ export default function CartPage() {
                     </div>
                     <div className="flex justify-between text-neutral-600">
                       <span>Taxes & Fees</span>
-                      <span>Included</span>
+                      <span>₹{filteredData.totalTaxesAndFees.toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -468,40 +501,78 @@ export default function CartPage() {
                         Total
                       </span>
                       <span className="font-black text-neutral-900 text-2xl">
-                        ₹{filteredData.total.toLocaleString()}
+                        ₹{filteredData.grandTotal.toLocaleString()}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <button
-                      onClick={handleFinalize}
-                      disabled={filteredData.total === 0 || isFinalizing}
-                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
-                    >
-                      {isFinalizing ? "Processing..." : "Finalize Selection"}
-                    </button>
+                    {isFinalized ? (
+                      <button
+                        onClick={() => setFinalizedCartSnapshot(null)}
+                        className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg hover:bg-amber-600 hover:shadow-xl transition-all transform active:scale-[0.98]"
+                      >
+                        🔓 Unlock &amp; Edit Cart
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleFinalize}
+                        disabled={filteredData.total === 0 || isFinalizing}
+                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
+                      >
+                        {isFinalizing ? "Processing..." : "Finalize Selection"}
+                      </button>
+                    )}
 
                     <button
                       onClick={async () => {
                         setIsPaying(true);
                         try {
+                          // Collect all item IDs currently in the cart
+                          const cartItemIds: string[] = [];
+                          filteredData.hotels.forEach(group => {
+                            if (group.hotel_wishlist_item) cartItemIds.push(group.hotel_wishlist_item.id);
+                            (group.rooms || []).forEach(r => cartItemIds.push(r.id));
+                            (group.banquets || []).forEach(b => cartItemIds.push(b.id));
+                            (group.catering || []).forEach(c => cartItemIds.push(c.id));
+                          });
+                          filteredData.flights.forEach(f => cartItemIds.push(f.id));
+                          filteredData.transfers.forEach(t => cartItemIds.push(t.id));
+
                           // Persist cart total as budgetSpent so dashboard bar updates
                           await updateEvent(eventId, {
-                            budgetSpent: filteredData.total,
+                            budgetSpent: filteredData.grandTotal,
                           } as any);
+
+                          // Clear the cart using the bulk removed backend logic for each hotel
+                          for (const group of filteredData.hotels) {
+                            if (group.hotel_details?.id) {
+                                await removeHotelGroupFromCart(eventId, group.hotel_details.id);
+                            }
+                          }
+
+                          // Clear non-hotel items (Flights and Transfers) individually
+                          const standaloneItemIds = [
+                            ...filteredData.flights.map(f => f.id),
+                            ...filteredData.transfers.map(t => t.id)
+                          ];
+                          for (const id of standaloneItemIds) {
+                            await removeFromCart(eventId, id);
+                          }
+
                           await refreshEvents();
-                          toast.info("Payment gateway coming soon! Budget bar has been updated.");
+                          toast.success("Payment processed! Redirecting to event dashboard...");
+                          setTimeout(() => router.push(`/events/${eventId}`), 1000);
                         } catch (e) {
-                          toast.error("Failed to update budget data.");
+                          toast.error("Failed to process payment data.");
                         } finally {
                           setIsPaying(false);
                         }
                       }}
-                      disabled={filteredData.total === 0 || isPaying}
+                      disabled={filteredData.grandTotal === 0 || isPaying || !isFinalized}
                       className="w-full py-3 bg-white border border-neutral-200 text-neutral-900 font-bold rounded-xl hover:bg-neutral-50 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
-                      {isPaying ? "Updating..." : "Make Payment"}
+                      {isPaying ? "Processing Payment..." : "Make Payment"}
                     </button>
 
                     <button
@@ -548,8 +619,8 @@ export default function CartPage() {
 interface CartItemRowProps {
   item: CartItemDetail;
   activeTab: Tab;
-  onRemove: () => void;
-  onUpdate: (qty: number) => void;
+  onRemove?: () => void;
+  onUpdate?: (qty: number) => void;
   onMoveToCart: () => void;
   hideImage?: boolean;
 }
@@ -619,7 +690,7 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
         />
       )}
 
-      <div className="flex-1">
+      <div className="flex-1 pr-10">
         <div className="flex justify-between items-start">
           <h6 className="font-bold text-neutral-800 text-lg leading-tight">
             {name}
@@ -636,23 +707,25 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
 
         <div className="flex items-center flex-wrap gap-4 mt-3">
           {/* Quantity Control */}
-          <div className="flex items-center bg-white border border-neutral-200 rounded-lg p-1 shadow-sm">
-            <button
-              onClick={() => onUpdate(Math.max(1, item.quantity - 1))}
-              className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-blue-600 transition-colors hover:bg-neutral-50 rounded"
-            >
-              -
-            </button>
-            <span className="w-8 text-center text-sm font-bold text-neutral-900">
-              {item.quantity}
-            </span>
-            <button
-              onClick={() => onUpdate(item.quantity + 1)}
-              className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-blue-600 transition-colors hover:bg-neutral-50 rounded"
-            >
-              +
-            </button>
-          </div>
+          {item.type !== "hotel" && onUpdate && (
+            <div className="flex items-center bg-white border border-neutral-200 rounded-lg p-1 shadow-sm">
+              <button
+                onClick={() => onUpdate(Math.max(1, item.quantity - 1))}
+                className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-blue-600 transition-colors hover:bg-neutral-50 rounded"
+              >
+                -
+              </button>
+              <span className="w-8 text-center text-sm font-bold text-neutral-900">
+                {item.quantity}
+              </span>
+              <button
+                onClick={() => onUpdate(item.quantity + 1)}
+                className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-blue-600 transition-colors hover:bg-neutral-50 rounded"
+              >
+                +
+              </button>
+            </div>
+          )}
 
           {/* Status Badge */}
           <span
@@ -677,26 +750,28 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
         </div>
       </div>
 
-      {/* Remove Button */}
-      <button
-        onClick={onRemove}
-        className="text-neutral-400 hover:text-red-500 transition-colors absolute top-4 right-4 p-2 hover:bg-red-50 rounded-full"
-        title="Remove item"
-      >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      {/* Remove Button - hidden when locked */}
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="text-neutral-400 hover:text-red-500 transition-colors absolute top-4 right-4 p-2 hover:bg-red-50 rounded-full"
+          title="Remove item"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-          />
-        </svg>
-      </button>
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 };

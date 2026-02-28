@@ -28,7 +28,7 @@ export default function AgentNegotiationPage() {
 
 function AgentNegotiationContent({ eventId }: { eventId: string }) {
   const router = useRouter();
-  const { cart, loading: cartLoading, fetchCart } = useCart();
+  const { cart, loading: cartLoading, fetchCart, updateCartItem } = useCart();
   const {
     items,
     messages,
@@ -36,7 +36,7 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
     expiry,
     shareToken,
     history,
-    initNegotiation,
+    syncItemsFromCart,
     updateItemPrice,
     updateItemMessage,
     sendMessage,
@@ -47,7 +47,7 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
   } = useNegotiation();
 
   /* New Hook usage */
-  const { events } = useEvents();
+  const { events, updateEvent } = useEvents();
   const currentEvent = events.find((e) => e.id === eventId);
   /* New Hook usage End */
 
@@ -59,119 +59,82 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
     refreshState();
   }, []);
 
+  // Always force-refresh cart when navigating to negotiation page
   useEffect(() => {
-    if (eventId && !cart) {
+    if (eventId) {
       fetchCart(eventId);
     }
-  }, [eventId, cart, fetchCart]);
+  }, [eventId]);
 
+  // Always sync negotiation items from cart whenever cart changes
   useEffect(() => {
-    if (cart && items.length === 0 && !cartLoading) {
-      // Map cart items to negotiation items
-      const negotiationItems: NegotiationItem[] = [];
-      let calculatedTotalBudget = 0;
+    if (!cart || cartLoading) return;
 
-      cart.hotels.forEach((group) => {
-        // Hotel Rooms
-        group.rooms.forEach((room) => {
-          if (room.status === "cart" || room.status === "approved") {
-            const price = room.locked_price || 0;
-            calculatedTotalBudget += price * room.quantity;
-            negotiationItems.push({
-              id: room.id,
-              name: room.room_details?.name || "Room",
-              type: "room",
-              originalPrice: price,
-              currentPrice: price, // Initial hotel offer
-              targetPrice: price, // Default target to same
-              quantity: room.quantity,
-              status: "pending",
-            });
-          }
-        });
+    const freshItems: any[] = [];
+    let calculatedTotalBudget = 0;
 
-        // Banquets
-        group.banquets.forEach((banquet) => {
-          if (banquet.status === "cart" || banquet.status === "approved") {
-            const price = banquet.locked_price || 0;
-            calculatedTotalBudget += price * banquet.quantity;
-            negotiationItems.push({
-              id: banquet.id,
-              name: banquet.banquet_details?.name || "Banquet",
-              type: "banquet",
-              originalPrice: price,
-              currentPrice: price,
-              targetPrice: price,
-              quantity: banquet.quantity,
-              status: "pending",
-            });
-          }
-        });
-
-        // Catering
-        group.catering.forEach((cat) => {
-          if (cat.status === "cart" || cat.status === "approved") {
-            const price = cat.locked_price || 0;
-            calculatedTotalBudget += price * cat.quantity;
-            negotiationItems.push({
-              id: cat.id,
-              name: cat.catering_details?.name || "Catering",
-              type: "catering",
-              originalPrice: price,
-              currentPrice: price,
-              targetPrice: price,
-              quantity: cat.quantity,
-              status: "pending", // Fixed: Was missing
-            });
-          }
-        });
+    cart.hotels.forEach((group) => {
+      group.rooms.forEach((room) => {
+        if (room.status === "cart" || room.status === "approved") {
+          const price = room.locked_price || 0;
+          calculatedTotalBudget += price * room.quantity;
+          freshItems.push({
+            id: room.id,
+            name: room.room_details?.name || "Room",
+            type: "room",
+            originalPrice: price,
+            currentPrice: price,
+            targetPrice: price,
+            quantity: room.quantity,
+            status: "pending",
+          });
+        }
       });
 
-      if (negotiationItems.length > 0) {
-        initNegotiation(negotiationItems, {
-          name: currentEvent?.name || "Event Name",
-          date: currentEvent?.startDate
-            ? new Date(currentEvent.startDate).toLocaleDateString()
-            : "Date TBD",
-          location: currentEvent?.location || "Location TBD",
-          totalBudget: calculatedTotalBudget,
-        });
-      }
-    } else if (items.length > 0 && currentEvent && cart) {
-      // Recalculate budget to ensure it matches cart even if persisted
-      let calculatedTotalBudget = 0;
-      cart.hotels.forEach((group) => {
-        group.rooms.forEach((r) => {
-          if (r.status === "cart" || r.status === "approved")
-            calculatedTotalBudget += (r.locked_price || 0) * r.quantity;
-        });
-        group.banquets.forEach((b) => {
-          if (b.status === "cart" || b.status === "approved")
-            calculatedTotalBudget += (b.locked_price || 0) * b.quantity;
-        });
-        group.catering.forEach((c) => {
-          if (c.status === "cart" || c.status === "approved")
-            calculatedTotalBudget += (c.locked_price || 0) * c.quantity;
-        });
+      group.banquets.forEach((banquet) => {
+        if (banquet.status === "cart" || banquet.status === "approved") {
+          const price = banquet.locked_price || 0;
+          calculatedTotalBudget += price * banquet.quantity;
+          freshItems.push({
+            id: banquet.id,
+            name: banquet.banquet_details?.name || "Banquet",
+            type: "banquet",
+            originalPrice: price,
+            currentPrice: price,
+            targetPrice: price,
+            quantity: banquet.quantity,
+            status: "pending",
+          });
+        }
       });
 
-      updateEventDetails({
-        name: currentEvent.name || "Event Name",
-        date: currentEvent.startDate
-          ? new Date(currentEvent.startDate).toLocaleDateString()
-          : "Date TBD",
-        location: currentEvent.location || "Location TBD",
-        totalBudget: calculatedTotalBudget,
+      group.catering.forEach((cat) => {
+        if (cat.status === "cart" || cat.status === "approved") {
+          const price = cat.locked_price || 0;
+          calculatedTotalBudget += price * cat.quantity;
+          freshItems.push({
+            id: cat.id,
+            name: cat.catering_details?.name || "Catering",
+            type: "catering",
+            originalPrice: price,
+            currentPrice: price,
+            targetPrice: price,
+            quantity: cat.quantity,
+            status: "pending",
+          });
+        }
       });
-    }
-  }, [
-    cart,
-    items.length,
-    cartLoading,
-    initNegotiation,
-    currentEvent,
-    updateEventDetails,
-  ]);
+    });
+
+    syncItemsFromCart(freshItems, {
+      name: currentEvent?.name || "Event Name",
+      date: currentEvent?.startDate
+        ? new Date(currentEvent.startDate).toLocaleDateString()
+        : "Date TBD",
+      location: currentEvent?.location || "Location TBD",
+      totalBudget: calculatedTotalBudget,
+    });
+  }, [cart, cartLoading, currentEvent, syncItemsFromCart]);
 
   useEffect(() => {
     if (shareToken) {
@@ -180,7 +143,7 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
   }, [shareToken]);
 
   const handleSendToHotel = async () => {
-    if (status === "sent_to_hotel") return;
+    if (status === "sent_to_tbo") return;
     setIsSubmitting(true);
     try {
       // Simulate API delay
@@ -203,11 +166,33 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
 
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Persist the negotiated prices back to the genuine backend cart
+      await Promise.all(
+        items.map((item) =>
+          updateCartItem(eventId, item.id, { locked_price: item.currentPrice })
+        )
+      );
+
+      // Calculate total negotiated budget
+      const negotiatedTotal = items.reduce(
+        (sum, item) => sum + item.currentPrice * item.quantity,
+        0
+      );
+
+      // Update the event's budgetSpent
+      if (currentEvent) {
+        await updateEvent(eventId, {
+          ...currentEvent,
+          budgetSpent: negotiatedTotal
+        });
+      }
+
       lockDeal();
-      router.push(`/events/${eventId}`);
+      toast.success("Deal Locked!");
+      router.push(`/events/${eventId}/cart`);
     } catch (error) {
-      toast.error("Failed to lock deal");
+      console.error(error);
+      toast.error("Failed to lock deal and update cart prices");
     } finally {
       setIsSubmitting(false);
     }
@@ -286,10 +271,10 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-blue-900">
-                    Share with Hotel Manager
+                    Share with TBO Manager
                   </h3>
                   <p className="text-xs text-blue-700 mt-1">
-                    Send this link to the hotel to start negotiating.
+                    Send this link to the TBO Manager to start negotiating.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -315,13 +300,13 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
                 <button
                   onClick={handleSendToHotel}
                   disabled={
-                    status === "sent_to_hotel" ||
+                    status === "sent_to_tbo" ||
                     status === "locked" ||
                     isSubmitting
                   }
                   className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {status === "sent_to_hotel"
+                  {status === "sent_to_tbo"
                     ? "Sent to TBO"
                     : "Send to TBO"}
                 </button>
@@ -353,7 +338,7 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${round.author === "Agent" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`}
                           >
-                            {round.author}
+                            {round.author === "TBO Manager" ? "TBO Manager" : round.author}
                           </span>
                           <span className="text-sm text-gray-500 ml-2">
                             {new Date(round.timestamp).toLocaleString()}
@@ -395,7 +380,7 @@ function AgentNegotiationContent({ eventId }: { eventId: string }) {
               isAgent={true}
               onLockDeal={handleLockDeal}
               isSubmitting={isSubmitting}
-              canLock={status !== "locked"}
+              canLock={status === "countered_by_tbo"}
             />
 
             {/* Chat */}

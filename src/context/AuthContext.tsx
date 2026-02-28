@@ -7,7 +7,8 @@ export enum UserRole {
   ADMIN = "admin",
   AGENT = "agent",
   HEAD_GUEST = "head_guest",
-  GUEST = "guest"
+  GUEST = "guest",
+  TBO_AGENT = "tbo_agent"
 }
 
 export interface User {
@@ -55,6 +56,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     if (userData.role === 'head_guest' && eventId) {
         router.push(`/events/${eventId}/portal/${userData.id}`);
+    } else if (userData.role === 'tbo_agent') {
+        router.push("/tbo-admin");
     } else {
         router.push("/dashboard");
     }

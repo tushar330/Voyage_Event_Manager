@@ -15,6 +15,36 @@ export const NegotiationTable: React.FC<NegotiationTableProps> = ({
   onPriceChange,
   onMessageChange,
 }) => {
+  const [localPrices, setLocalPrices] = React.useState<Record<string, string>>({});
+
+  // Sync external props to local state only when they differ mathematically, to allow empty strings during typing
+  React.useEffect(() => {
+    setLocalPrices((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      items.forEach((item) => {
+        const val = isAgent ? item.targetPrice : item.currentPrice;
+        const currentLocal = prev[item.id];
+        // If local is undefined, or mathematically different, update it
+        if (currentLocal === undefined || (currentLocal !== "" && Number(currentLocal) !== val)) {
+          next[item.id] = String(val);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [items, isAgent]);
+
+  const handlePriceChangeLocal = (id: string, val: string) => {
+    setLocalPrices(prev => ({ ...prev, [id]: val }));
+    const parsed = parseFloat(val);
+    if (!isNaN(parsed) && onPriceChange) {
+      onPriceChange(id, parsed);
+    } else if (val === "" && onPriceChange) {
+      onPriceChange(id, 0); // fallback if completely cleared
+    }
+  };
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
@@ -114,11 +144,8 @@ export const NegotiationTable: React.FC<NegotiationTableProps> = ({
                       <input
                         type="number"
                         className="block w-full rounded-md border-0 py-1.5 pl-6 pr-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-xs sm:leading-6"
-                        value={item.targetPrice}
-                        onChange={(e) =>
-                          onPriceChange &&
-                          onPriceChange(item.id, Number(e.target.value))
-                        }
+                        value={localPrices[item.id] ?? item.targetPrice}
+                        onChange={(e) => handlePriceChangeLocal(item.id, e.target.value)}
                       />
                     </div>
                   ) : (
@@ -138,11 +165,8 @@ export const NegotiationTable: React.FC<NegotiationTableProps> = ({
                       <input
                         type="number"
                         className="block w-full rounded-md border-0 py-1.5 pl-6 pr-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-xs sm:leading-6"
-                        value={item.currentPrice}
-                        onChange={(e) =>
-                          onPriceChange &&
-                          onPriceChange(item.id, Number(e.target.value))
-                        }
+                        value={localPrices[item.id] ?? item.currentPrice}
+                        onChange={(e) => handlePriceChangeLocal(item.id, e.target.value)}
                       />
                     </div>
                   )}

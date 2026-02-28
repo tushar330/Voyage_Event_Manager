@@ -231,12 +231,15 @@ export default function HotelDetailsPage() {
         refId: hotel.id,
         quantity: 1,
         status: "cart",
+        tax_and_fees: 0, // Base items don't hold tax, sub items hold tax to prevent double counting
       });
 
       // 2. Add Rooms
       const roomPromises = Object.entries(selectedRooms)
         .filter(([_, qty]) => qty > 0)
         .map(([roomId, qty]) => {
+          const room = rooms.find((r) => r.id === roomId);
+          const roomPrice = room ? room.price : 0;
           console.log(
             `DEBUG: Adding Room to Cart - ID: ${roomId}, Qty: ${qty}`,
           );
@@ -245,6 +248,7 @@ export default function HotelDetailsPage() {
             refId: roomId,
             quantity: qty,
             status: "cart",
+            tax_and_fees: calculateTaxes(roomPrice * qty),
           });
         });
 
@@ -257,6 +261,7 @@ export default function HotelDetailsPage() {
             quantity: 1,
             notes: `Slot: ${selectedTimeSlot}, Date: ${eventDate}`,
             status: "cart",
+            tax_and_fees: calculateTaxes(banquetCost),
           }),
         );
       }
@@ -269,6 +274,7 @@ export default function HotelDetailsPage() {
             refId: selectedMealPlan.toString(),
             quantity: attendeeCount,
             status: "cart",
+            tax_and_fees: calculateTaxes(cateringCost),
           }),
         );
       }
@@ -276,7 +282,7 @@ export default function HotelDetailsPage() {
       await Promise.all(roomPromises);
 
       toast.success(`${hotel.name} items added to cart!`);
-      router.push(`/events/${eventId}`);
+      router.push(`/events/${eventId}/cart`);
     } catch (err: any) {
       console.error("Failed to add items to cart:", err);
       toast.error(err.message || "Failed to add items to cart");

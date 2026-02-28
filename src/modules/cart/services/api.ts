@@ -82,5 +82,43 @@ export const cartApi = {
         });
 
         if (!response.ok) throw new Error('Failed to remove from cart');
+    },
+
+    /**
+     * Bulk Add items to the cart/wishlist
+     */
+    async bulkAddToCart(eventId: string, data: AddToCartRequest[], token?: string): Promise<any> {
+        const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(`/api/events/${eventId}/cart/bulk`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to bulk add to cart');
+        }
+
+        return response.json();
+    },
+
+    /**
+     * Remove entire hotel group (hotel + rooms + banquets + catering)
+     */
+    async removeHotelGroupFromCart(eventId: string, hotelId: string, token?: string): Promise<void> {
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(`/api/events/${eventId}/cart/hotel/${hotelId}`, {
+            method: 'DELETE',
+            headers,
+        });
+
+        if (!response.ok) throw new Error('Failed to remove hotel group from cart');
     }
 };

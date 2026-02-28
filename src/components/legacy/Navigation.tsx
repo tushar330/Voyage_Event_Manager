@@ -27,9 +27,9 @@ export default function Navigation() {
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-3">
           <img
-            src="/images/logo.jpg"
+            src="/images/logo.png"
             alt="TBO Logo"
-            className="h-12 w-12 object-contain rounded-lg shadow-sm"
+            className="h-20 w-20 object-contain rounded-lg shadow-sm"
           />
           <span className="text-white font-semibold text-lg">
             TBO Events Planner
