@@ -5,7 +5,7 @@ import { EventCardHeader } from './EventCardHeader';
 import { EventCardMetrics } from './EventCardMetrics';
 
 import { useState } from 'react';
-import { HeadGuestModal } from '../HeadGuestModal';
+import { EventManagerModal } from '../EventManagerModal';
 
 import { useEvents } from '@/context/EventContext';
 
@@ -109,7 +109,7 @@ export function EventCard({ event, className }: EventCardProps) {
                                 Go to Event
                             </button>
 
-                            {(!event.headGuestId || event.headGuestId === '00000000-0000-0000-0000-000000000000') ? (
+                            {(!event.eventManagerId || event.eventManagerId === '00000000-0000-0000-0000-000000000000') ? (
                                 <button 
                                     onClick={(e) => {
                                         handleAssignClick(e);
@@ -120,12 +120,12 @@ export function EventCard({ event, className }: EventCardProps) {
                                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                     </svg>
-                                    Assign Head Guest
+                                    Assign Event Manager
                                 </button>
                             ) : (
                                 <div className="w-full px-4 py-3 text-xs font-medium text-green-600 bg-green-50/50 flex items-center border-t border-neutral-100 cursor-default" onClick={(e) => e.stopPropagation()}>
                                     <svg className="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                                    Head Guest Assigned
+                                    Event Manager Assigned
                                 </div>
                             )}
                         </div>
@@ -135,7 +135,7 @@ export function EventCard({ event, className }: EventCardProps) {
         </div>
       </div>
 
-    <HeadGuestModal 
+    <EventManagerModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         eventId={event.id} 

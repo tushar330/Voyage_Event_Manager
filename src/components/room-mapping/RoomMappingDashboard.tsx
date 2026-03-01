@@ -14,7 +14,7 @@ const isUUID = (value: string) =>
 
 interface RoomMappingDashboardProps {
   eventId: string;
-  role: "agent" | "head_guest";
+  role: "agent" | "event_manager";
   guestId?: string;
 }
 
@@ -148,7 +148,7 @@ export default function RoomMappingDashboard({ eventId, role, guestId }: RoomMap
         return allocationService.finalizeEvent(eventId, token);
     },
     onSuccess: () => {
-        flashMessage("success", role === "head_guest" ? "Allocations locked successfully." : "Event finalized. Room mapping is now locked.");
+        flashMessage("success", role === "event_manager" ? "Allocations locked successfully." : "Event finalized. Room mapping is now locked.");
         queryClient.invalidateQueries({ queryKey: ["allocations", eventId] });
     },
     onError: (err: any) => flashMessage("error", err.message),
@@ -243,14 +243,14 @@ export default function RoomMappingDashboard({ eventId, role, guestId }: RoomMap
                 {!isLockedOrFinalized && (isAllocating || hasAllocations) && (
                     <button
                         onClick={() => { 
-                          if(confirm(role === "head_guest" ? "Lock allocations? Changes will require Agent approval." : "Lock and finalize rooms? This will prevent further changes.")) {
+                          if(confirm(role === "event_manager" ? "Lock allocations? Changes will require Agent approval." : "Lock and finalize rooms? This will prevent further changes.")) {
                             finalizeMutation.mutate(); 
                           }
                         }}
                         disabled={finalizeMutation.isPending}
                         className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 shadow-sm transition-colors"
                     >
-                        {finalizeMutation.isPending ? "Locking..." : role === "head_guest" ? "Lock Mapping" : "Finalize & Lock"}
+                        {finalizeMutation.isPending ? "Locking..." : role === "event_manager" ? "Lock Mapping" : "Finalize & Lock"}
                     </button>
                 )}
 
@@ -274,7 +274,7 @@ export default function RoomMappingDashboard({ eventId, role, guestId }: RoomMap
               <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              {eventStatus === "locked" ? "Event is locked by Head Guest. Waiting for Agent Finalization." : "Event is finalized. Allocations are locked."}
+              {eventStatus === "locked" ? "Event is locked by Event Manager. Waiting for Agent Finalization." : "Event is finalized. Allocations are locked."}
           </div>
       )}
 

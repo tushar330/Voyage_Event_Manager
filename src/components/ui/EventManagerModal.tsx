@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
-interface HeadGuestModalProps {
+interface EventManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventId: string;
@@ -11,7 +11,7 @@ interface HeadGuestModalProps {
   onAssignSuccess?: () => void;
 }
 
-export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSuccess }: HeadGuestModalProps) {
+export function EventManagerModal({ isOpen, onClose, eventId, eventName, onAssignSuccess }: EventManagerModalProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -52,7 +52,7 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSu
 
     try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-        const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/head-guest`, {
+        const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/event-manager`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -63,11 +63,11 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSu
 
         if (!res.ok) {
             const data = await res.json();
-            throw new Error(data.error || 'Failed to assign head guest');
+            throw new Error(data.error || 'Failed to assign event manager');
         }
 
         const data = await res.json();
-        console.log("Head Guest Response:", data); // Debug log
+        console.log("Event Manager Response:", data); // Debug log
         if (data.data?.tempPassword || data.tempPassword) {
             setTempPassword(data.data?.tempPassword || data.tempPassword);
         } else if (data.data?.user?.id || data.user?.id) {
@@ -108,7 +108,7 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSu
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Assign Head Guest</h2>
+          <h2 className="text-xl font-bold text-gray-900">Assign Event Manager</h2>
           <button onClick={resetModal} className="text-gray-400 hover:text-gray-600">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -123,7 +123,7 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSu
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">Head Guest Assigned!</h3>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">Event Manager Assigned!</h3>
                 <p className="mt-2 text-sm text-gray-500">
                     Login credentials have been sent to <strong>{email}</strong>.
                 </p>
@@ -139,7 +139,7 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSu
             </div>
         ) : showConfirm ? (
             <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Confirm Head Guest Details</h3>
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Confirm Event Manager Details</h3>
                 <div className="bg-gray-50 p-4 rounded-md space-y-2 text-sm text-gray-700">
                     <p><span className="font-semibold w-24 inline-block">Name:</span> {name}</p>
                     <p><span className="font-semibold w-24 inline-block">Email:</span> {email}</p>
@@ -171,8 +171,8 @@ export function HeadGuestModal({ isOpen, onClose, eventId, eventName, onAssignSu
                 </div>
             </div>
         ) : (  <form onSubmit={handleInitialSubmit} className="space-y-4">
-            <p className="text-sm text-gray-500 mb-4">
-                Create a head guest account for <strong>{eventName}</strong>. 
+            <p className="text-sm text-gray-500">
+                Create an event manager account for <strong>{eventName}</strong>. 
                 They will receive an email with their login credentials.
             </p>
 

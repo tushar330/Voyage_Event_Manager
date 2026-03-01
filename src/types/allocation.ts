@@ -11,7 +11,7 @@ export interface Guest {
     guest_id: string;
     guest_name: string;
     family_id: string;
-    is_head_guest?: boolean;
+    is_event_manager?: boolean;
 }
 
 // Strictly for unallocated families derived from guests

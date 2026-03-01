@@ -535,7 +535,7 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel, showT
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Enforce phone constraint for Head Guest (Main Guest)
+        // Enforce phone constraint for Event Manager (Main Guest)
         let phoneString = phone.trim();
         if (phoneString && !phoneString.startsWith('+')) {
             phoneString = `${countryCode} ${phoneString}`;

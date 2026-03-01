@@ -55,7 +55,7 @@ export const allocationService = {
             guest_id: g.guest_id ?? g.id,
             guest_name: g.guest_name ?? g.name,
             family_id: g.family_id,
-            is_head_guest: g.is_head_guest ?? false,
+            is_event_manager: g.is_event_manager ?? g.is_head_guest ?? false,
         }));
     },
 

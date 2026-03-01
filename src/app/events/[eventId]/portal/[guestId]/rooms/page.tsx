@@ -14,7 +14,7 @@ export default function RoomsPage() {
 
   return (
     <div className="pb-20">
-        <RoomMappingDashboard eventId={eventId} role="head_guest" guestId={guestId} />
+        <RoomMappingDashboard eventId={eventId} role="event_manager" guestId={guestId} />
     </div>
   );
 }

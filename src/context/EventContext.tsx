@@ -64,7 +64,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
         pendingActions: e.pendingActions || 0,
         pendingActionDetails: e.pendingActionDetails || [],
         status: (e.status || e.Status || "draft").toLowerCase(),
-        headGuestId: e.head_guest_id || e.headGuestId || e.HeadGuestID,
+        eventManagerId: e.event_manager_id || e.eventManagerId || e.EventManagerID,
         roomsInventory: e.rooms_inventory || e.roomsInventory || e.RoomsInventory || [],
       };
     });
