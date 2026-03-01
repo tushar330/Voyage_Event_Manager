@@ -52,6 +52,7 @@ interface FamilyMember {
   name: string;
   age: string;
   phone?: string;
+  countryCode?: string;
   email?: string;
   arrivalDate?: string;
   departureDate?: string;
@@ -76,10 +77,7 @@ export default function GuestsPage({
       setEventError("");
       try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-        // Read token synchronously from localStorage — avoids React context timing race.
-        // AuthContext also reads from localStorage, but its state is null until after
-        // the first effect runs. By reading localStorage directly here we always have
-        // the token immediately on mount.
+
         const authToken =
           token ??
           (typeof window !== "undefined" ? localStorage.getItem("token") : null);
@@ -108,12 +106,13 @@ export default function GuestsPage({
     };
     fetchEvent();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]); // run once per event — token is read from localStorage directly
+  }, [eventId]);
 
   // Form state
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
   const [email, setEmail] = useState("");
   const [arrivalDate, setArrivalDate] = useState("");
   const [departureDate, setDepartureDate] = useState("");
@@ -165,6 +164,7 @@ export default function GuestsPage({
           name: "",
           age: "",
           phone: "",
+          countryCode: "+91",
           email: "",
           arrivalDate: "",
           departureDate: "",
@@ -215,12 +215,26 @@ export default function GuestsPage({
     setIsSubmitting(true);
     setErrorMessage("");
 
+    // Enforce phone constraint
+    let phoneString = phone.trim();
+    if (phoneString && !phoneString.startsWith('+')) {
+        phoneString = `${countryCode} ${phoneString}`;
+    }
+
+    const digitsOnly = phoneString.replace(/\D/g, '');
+    if (!digitsOnly || digitsOnly.length < 10) {
+        setErrorMessage('Please enter a valid phone number with at least 10 digits.');
+        setSubmitStatus('error');
+        setIsSubmitting(false);
+        return;
+    }
+
     // Build the payload
     const payload: GuestInput = {
       name: name.trim(),
       age: parseInt(age) || 0,
       type: (parseInt(age) || 0) < 16 ? 'child' : 'adult',
-      phone: phone.trim() || undefined,
+      phone: phoneString,
       email: email.trim() || undefined,
       arrivalDate: formatDateForApi(arrivalDate),
       departureDate: formatDateForApi(departureDate),
@@ -232,7 +246,7 @@ export default function GuestsPage({
         name: member.name.trim(),
         age: parseInt(member.age) || 0,
         type: (parseInt(member.age) || 0) < 16 ? 'child' : 'adult',
-        phone: member.phone?.trim() || undefined,
+        phone: member.phone?.trim() ? (member.phone.trim().startsWith('+') ? member.phone.trim() : `${(member as any).countryCode || '+91'} ${member.phone.trim()}`) : undefined,
         email: member.email?.trim() || undefined,
         arrivalDate: formatDateForApi(member.arrivalDate),
         departureDate: formatDateForApi(member.departureDate),
@@ -454,14 +468,27 @@ export default function GuestsPage({
                   <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Phone *
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
-                    placeholder="+91 9876543210"
-                  />
+                  <div className="flex shadow-sm rounded-lg">
+                    <select
+                        value={countryCode}
+                        onChange={e => setCountryCode(e.target.value)}
+                        className="rounded-l-lg border border-r-0 border-neutral-300 bg-neutral-50 px-3 py-2 text-neutral-700 focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent text-sm w-24"
+                    >
+                        <option value="+1">+1</option>
+                        <option value="+44">+44</option>
+                        <option value="+91">+91</option>
+                        <option value="+61">+61</option>
+                        <option value="+971">+971</option>
+                    </select>
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="flex-1 px-4 py-2 border border-neutral-300 rounded-r-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
+                      placeholder="9876543210"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -490,6 +517,8 @@ export default function GuestsPage({
                     type="date"
                     required
                     value={arrivalDate}
+                    min={event?.startDate ? new Date(event.startDate).toISOString().split('T')[0] : undefined}
+                    max={event?.endDate ? new Date(event.endDate).toISOString().split('T')[0] : undefined}
                     onChange={(e) => setArrivalDate(e.target.value)}
                     className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
                   />
@@ -502,6 +531,8 @@ export default function GuestsPage({
                     type="date"
                     required
                     value={departureDate}
+                    min={arrivalDate || (event?.startDate ? new Date(event.startDate).toISOString().split('T')[0] : undefined)}
+                    max={event?.endDate ? new Date(event.endDate).toISOString().split('T')[0] : undefined}
                     onChange={(e) => setDepartureDate(e.target.value)}
                     className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
                   />
@@ -576,16 +607,29 @@ export default function GuestsPage({
                           <label className="block text-xs font-medium text-neutral-600 mb-1">
                             Phone *
                           </label>
-                          <input
-                            type="tel"
-                            required
-                            value={member.phone || ""}
-                            onChange={(e) =>
-                              updateFamilyMember(member.id, "phone", e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
-                            placeholder="+91 9876543210"
-                          />
+                          <div className="flex shadow-sm rounded-lg">
+                            <select
+                                value={(member as any).countryCode || "+91"}
+                                onChange={e => updateFamilyMember(member.id, "countryCode" as any, e.target.value)}
+                                className="rounded-l-lg border border-r-0 border-neutral-300 bg-neutral-50 px-2 py-2 text-neutral-700 focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent text-xs"
+                            >
+                                <option value="+1">+1</option>
+                                <option value="+44">+44</option>
+                                <option value="+91">+91</option>
+                                <option value="+61">+61</option>
+                                <option value="+971">+971</option>
+                            </select>
+                            <input
+                              type="tel"
+                              required
+                              value={member.phone || ""}
+                              onChange={(e) =>
+                                updateFamilyMember(member.id, "phone", e.target.value)
+                              }
+                              className="flex-1 px-3 py-2 border border-neutral-300 rounded-r-lg text-sm focus:ring-2 focus:ring-corporate-blue-100 focus:border-transparent"
+                              placeholder="9876543210"
+                            />
+                          </div>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-neutral-600 mb-1">
@@ -612,6 +656,8 @@ export default function GuestsPage({
                             type="date"
                             required
                             value={member.arrivalDate || ""}
+                            min={event?.startDate ? new Date(event.startDate).toISOString().split('T')[0] : undefined}
+                            max={event?.endDate ? new Date(event.endDate).toISOString().split('T')[0] : undefined}
                             onChange={(e) =>
                               updateFamilyMember(member.id, "arrivalDate", e.target.value)
                             }
@@ -626,6 +672,8 @@ export default function GuestsPage({
                             type="date"
                             required
                             value={member.departureDate || ""}
+                            min={member.arrivalDate || (event?.startDate ? new Date(event.startDate).toISOString().split('T')[0] : undefined)}
+                            max={event?.endDate ? new Date(event.endDate).toISOString().split('T')[0] : undefined}
                             onChange={(e) =>
                               updateFamilyMember(member.id, "departureDate", e.target.value)
                             }

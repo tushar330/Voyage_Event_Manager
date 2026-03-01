@@ -82,9 +82,6 @@ export default function HotelDetailsPage() {
         } else {
           // If not found and we have retries left
           if (retryCount < MAX_RETRIES) {
-            console.log(
-              `Hotel not found, retrying (${retryCount + 1}/${MAX_RETRIES})...`,
-            );
             setTimeout(() => {
               setRetryCount((prev) => prev + 1);
             }, RETRY_DELAY);
@@ -92,7 +89,6 @@ export default function HotelDetailsPage() {
           } else {
             // No more retries
             setLoading(false);
-            console.warn("Hotel not found after retries");
           }
         }
       } catch (err: any) {
@@ -240,9 +236,6 @@ export default function HotelDetailsPage() {
         .map(([roomId, qty]) => {
           const room = rooms.find((r) => r.id === roomId);
           const roomPrice = room ? room.price : 0;
-          console.log(
-            `DEBUG: Adding Room to Cart - ID: ${roomId}, Qty: ${qty}`,
-          );
           return addToCart(eventId, {
             type: "room",
             refId: roomId,

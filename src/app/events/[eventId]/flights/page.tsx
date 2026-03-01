@@ -55,17 +55,16 @@ export default function FlightsPage() {
     setFlightLoading(true);
     setHasSearched(true);
     try {
-      console.log("Searching flights with params:", searchParams);
+
       // Construct query string manually to verify
       const queryString = new URLSearchParams(searchParams as any).toString();
-      console.log("Query string:", queryString);
+
 
       const data = await flightApi.searchFlights(searchParams, token || undefined);
-      console.log("API Response Data:", data);
+
       
       const responseData = data as any;
-      console.log("Data type:", typeof responseData);
-      console.log("Is Array:", Array.isArray(responseData));
+
 
       let flightsData: Flight[] = [];
 
@@ -81,9 +80,7 @@ export default function FlightsPage() {
          setFlights(flightsData);
          toast.success(`Found ${flightsData.length} flights from API`);
       } else {
-         console.warn("API returned empty flight data or invalid format, using mock data");
-         // Log what we actually got to help debugging
-         console.warn("Received data structure:", JSON.stringify(data, null, 2));
+
          
          const mockData = getMockFlights(searchParams.departure_code, searchParams.arrival_code);
          setFlights(mockData);

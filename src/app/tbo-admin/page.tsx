@@ -60,7 +60,7 @@ function TboDashboardContent() {
       setSessions(data || []);
     } catch (error) {
       // Network error or endpoint doesn't exist — gracefully show empty
-      console.warn("Negotiations endpoint not available yet:", error);
+
       setSessions([]);
     } finally {
       setLoading(false);

@@ -4,7 +4,7 @@
  */
 
 // Re-export from modules for backward compatibility
-export type { Event, HeadGuest, SubGuest, Guest, GuestInput } from '@/modules/events/types';
+export type { Event, EventManager, SubGuest, Guest, GuestInput } from '@/modules/events/types';
 
 // Inventory types
 export interface Hotel {
@@ -19,7 +19,7 @@ export interface Hotel {
 export interface RoomAllocation {
     id: string;
     eventId: string;
-    headGuestId: string;
+    eventManagerId: string;
     roomType: string;
     maxCapacity: number;
     hotelName: string;
@@ -40,6 +40,7 @@ export interface CuratedVenue {
     images: string[];
     amenities: string[];
     eventId: string;
+    status?: "wishlist" | "cart" | "approved";
 }
 
 // Metric types (dashboard)

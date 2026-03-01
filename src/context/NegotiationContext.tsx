@@ -373,11 +373,11 @@ export const NegotiationProvider: React.FC<{
   const loadSessionByTokenInternal = async (shareToken: string) => {
     try {
       const url = `${BACKEND_URL}/api/v1/negotiation/token/${shareToken}`;
-      console.log("[NegotiationContext] Loading session from:", url);
+
       const headers: Record<string, string> = {};
       if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
       const res = await fetch(url, { headers });
-      console.log("[NegotiationContext] Response status:", res.status);
+
       if (!res.ok) {
         const errorBody = await res.text().catch(() => "");
         console.error("[NegotiationContext] Error response:", errorBody);

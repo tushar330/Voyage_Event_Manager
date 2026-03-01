@@ -1,13 +1,50 @@
-import VenueShowcaseCard from "@/components/legacy/portal/VenueShowcaseCard";
-import { mockCuratedVenues } from "@/lib/mockData";
+"use client";
 
-export default async function VenuePage({
-  params,
-}: {
-  params: Promise<{ eventId: string; guestId: string }>;
-}) {
-  const { eventId } = await params;
-  const venues = mockCuratedVenues.filter((v) => v.eventId === eventId);
+import { useEffect, useState } from "react";
+import VenueShowcaseCard from "@/components/legacy/portal/VenueShowcaseCard";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+import { useParams } from "next/navigation";
+import { CuratedVenue } from "@/types";
+
+export default function VenuePage() {
+  const params = useParams();
+  const eventId = params.eventId as string;
+  const { token } = useAuth();
+  const [venues, setVenues] = useState<CuratedVenue[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVenues = async () => {
+      if (!token || !eventId) return;
+
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+        const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/venues`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // Adjust based on your backend response format, e.g., data.venues or directly data
+          setVenues(data.data?.venues || data.venues || []);
+        } else {
+          toast.error("Failed to load venues");
+        }
+      } catch (error) {
+        console.error("Error fetching venues:", error);
+        toast.error("Error fetching venues");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVenues();
+  }, [eventId, token]);
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500 font-medium space-y-4 pb-20 mt-4 text-xl">Loading venues...</div>;
+  }
 
   return (
     <div className="space-y-10 pb-20">

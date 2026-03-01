@@ -77,7 +77,7 @@ export default function CartPage() {
 
   // useEffect(() => {
   //   if (cart) {
-  //       console.log("Cart Data:", cart);
+
   //       toast.info(`Cart: H:${cart.hotels?.length || 0} F:${cart.flights?.length || 0} T:${cart.transfers?.length || 0}`);
   //   }
   // }, [cart]);
@@ -189,6 +189,8 @@ export default function CartPage() {
       const currentEvent = events.find((e) => e.id === eventId);
       const existingRooms = currentEvent?.roomsInventory || [];
 
+
+
       // 1. Gather all rooms from the cart
       const newRooms = (cart?.hotels || []).flatMap((group) =>
         (group.rooms || [])
@@ -224,9 +226,37 @@ export default function CartPage() {
       });
 
       // 2. Update Event
-      await updateEvent(eventId, {
-        roomsInventory: mergedRooms,
+      let selectedHotelId = "";
+      const targetGroup = (cart?.hotels || []).find((group) => {
+        const hasRooms = group.rooms?.some((r) => ["cart", "approved"].includes(r.status));
+        const hasBanquets = group.banquets?.some((b) => ["cart", "approved"].includes(b.status));
+        const hasCatering = group.catering?.some((c) => ["cart", "approved"].includes(c.status));
+        const hasWishlist = group.hotel_wishlist_item?.status === "cart" || group.hotel_wishlist_item?.status === "approved";
+        return hasRooms || hasBanquets || hasCatering || hasWishlist;
       });
+
+      const fallbackGroup = targetGroup || (cart?.hotels?.length ? cart.hotels[0] : null);
+
+      if (fallbackGroup) {
+        if (fallbackGroup.hotel_details) {
+            const details = fallbackGroup.hotel_details as any;
+            selectedHotelId = details.id || details.hotelCode || "";
+        }
+        if (!selectedHotelId && fallbackGroup.hotel_wishlist_item?.ref_id) {
+            selectedHotelId = fallbackGroup.hotel_wishlist_item.ref_id;
+        }
+      }
+
+      if (selectedHotelId) {
+        await updateEvent(eventId, {
+          roomsInventory: mergedRooms,
+          hotelId: selectedHotelId,
+        } as any);
+      } else {
+        await updateEvent(eventId, {
+          roomsInventory: mergedRooms,
+        });
+      }
 
       // 3. Lock flights and transfers
       const itemsToLock = [
@@ -435,7 +465,7 @@ export default function CartPage() {
                       src={
                         group.hotel_details?.image ||
                         group.hotel_details?.image_urls?.[0] ||
-                        "/placeholder-hotel.jpg"
+                        "/images/placeholder.jpg"
                       }
                       alt={group.hotel_details?.name}
                       className="w-16 h-16 rounded-xl object-cover"
@@ -537,6 +567,7 @@ export default function CartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
+                        hideImage={true}
                         onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
                         onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
@@ -562,6 +593,7 @@ export default function CartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
+                        hideImage={true}
                         onRemove={isFinalized ? undefined : () => removeFromCart(eventId, item.id)}
                         onUpdate={isFinalized ? undefined : (qty) =>
                           updateCartItem(eventId, item.id, { quantity: qty })
@@ -773,10 +805,10 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
         return (
           item.hotel_details?.image ||
           item.hotel_details?.image_urls?.[0] ||
-          "/placeholder-hotel.jpg"
+          "/images/placeholder.jpg"
         );
       case "transfer":
-         return "/placeholder-transfer.jpg";
+         return "/images/cab.jpg";
       default:
         return "/placeholder-item.jpg";
     }

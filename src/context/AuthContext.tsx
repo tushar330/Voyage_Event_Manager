@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export enum UserRole {
   ADMIN = "admin",
   AGENT = "agent",
-  HEAD_GUEST = "head_guest",
+  EVENT_MANAGER = "event_manager",
   GUEST = "guest",
   TBO_AGENT = "tbo_agent"
 }
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("token", newToken);
     localStorage.setItem("user", JSON.stringify(userData));
     
-    if (userData.role === 'head_guest' && eventId) {
+    if (userData.role === 'event_manager' && eventId) {
         router.push(`/events/${eventId}/portal/${userData.id}`);
     } else if (userData.role === 'tbo_agent') {
         router.push("/tbo-admin");

@@ -14,7 +14,8 @@ const LOCATION_NAMES: Record<string, string> = {
     'SIN': 'Singapore (SIN)',
     'LHR': 'London Heathrow (LHR)',
     'JFK': 'New York (JFK)',
-    'SFO': 'San Francisco (SFO)',
+    'HYD': 'Hyderabad (HYD)',
+    'AMD': 'Ahmedabad (AMD)',
 };
 
 interface FlightSearchProps {

@@ -1,30 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function GuestFormPage({ params }: { params: Promise<{ eventId: string; guestId: string }> }) {
-    // In a real app, we would resolve params properly. For client components, we need to unwrap.
-    // However, since this is a page, we can assume params are available or use useParams if needed.
-    // For simplicity in this prototype:
+    const { eventId, guestId } = use(params);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
         email: '',
         phone: '',
+        countryCode: '+91',
+        arrivalDate: '',
+        departureDate: '',
         dietaryRequirements: '',
     });
+    const [eventDates, setEventDates] = useState<{ start: string; end: string } | null>(null);
+
+    useEffect(() => {
+        const fetchEvent = async () => {
+            try {
+                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+                const res = await fetch(`${backendUrl}/api/v1/events/${eventId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const event = data?.data?.event || data?.event || data;
+                    if (event) {
+                        setEventDates({
+                            start: (event.start_date || event.startDate || '').split('T')[0],
+                            end: (event.end_date || event.endDate || '').split('T')[0]
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching event:", err);
+            }
+        };
+        fetchEvent();
+    }, [eventId]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        let phoneString = formData.phone.trim();
+        if (phoneString && !phoneString.startsWith('+')) {
+            phoneString = `${formData.countryCode} ${phoneString}`;
+        }
+
+        const digitsOnly = phoneString.replace(/\D/g, '');
+        if (!digitsOnly || digitsOnly.length < 10) {
+            alert('Please enter a valid phone number with at least 10 digits.');
+            return;
+        }
+
         setIsSubmitting(true);
 
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        console.log('Form Submitted:', formData);
+
         setIsSuccess(true);
         setIsSubmitting(false);
     };
@@ -94,14 +129,58 @@ export default function GuestFormPage({ params }: { params: Promise<{ eventId: s
                     </div>
 
                     <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input
-                            type="tel"
-                            id="phone"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
-                            value={formData.phone}
-                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                        />
+                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number *</label>
+                        <div className="flex mt-1 shadow-sm rounded-md">
+                            <select
+                                value={formData.countryCode}
+                                onChange={e => setFormData({ ...formData, countryCode: e.target.value })}
+                                className="rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+                            >
+                                <option value="+1">+1 (US)</option>
+                                <option value="+44">+44 (UK)</option>
+                                <option value="+91">+91 (IN)</option>
+                                <option value="+61">+61 (AU)</option>
+                                <option value="+971">+971 (AE)</option>
+                            </select>
+                            <input
+                                type="tel"
+                                id="phone"
+                                required
+                                className="flex-1 rounded-r-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+                                value={formData.phone}
+                                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                placeholder="Phone number"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="arrivalDate" className="block text-sm font-medium text-gray-700">Arrival Date *</label>
+                            <input
+                                type="date"
+                                id="arrivalDate"
+                                required
+                                min={eventDates?.start}
+                                max={eventDates?.end}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+                                value={formData.arrivalDate}
+                                onChange={e => setFormData({ ...formData, arrivalDate: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="departureDate" className="block text-sm font-medium text-gray-700">Departure Date *</label>
+                            <input
+                                type="date"
+                                id="departureDate"
+                                required
+                                min={formData.arrivalDate || eventDates?.start}
+                                max={eventDates?.end}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+                                value={formData.departureDate}
+                                onChange={e => setFormData({ ...formData, departureDate: e.target.value })}
+                            />
+                        </div>
                     </div>
 
                     <div>

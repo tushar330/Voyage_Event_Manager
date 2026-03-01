@@ -27,7 +27,7 @@ export default function PortalLayout({
     const { token } = useAuth();
 
     const [event, setEvent] = useState<Event | null>(null);
-    const [headGuest, setHeadGuest] = useState<Guest | null>(null);
+    const [eventManager, setEventManager] = useState<Guest | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -53,7 +53,7 @@ export default function PortalLayout({
                 const guestData = await guestRes.json();
 
                 setEvent(eventData.data.event); 
-                setHeadGuest(guestData.data.guest);
+                setEventManager(guestData.data.guest);
             } catch (err: any) {
                 console.error("Portal validation error:", err);
                 setError(err.message || 'Validation failed');
@@ -69,7 +69,7 @@ export default function PortalLayout({
         return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading portal...</div>;
     }
 
-    if (error || !headGuest || !event) {
+    if (error || !eventManager || !event) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="text-center">
@@ -82,7 +82,7 @@ export default function PortalLayout({
     }
 
     return (
-        <ProtectedRoute requiredRole={UserRole.HEAD_GUEST} guestId={guestId}>
+        <ProtectedRoute requiredRole={UserRole.EVENT_MANAGER} guestId={guestId}>
             <div className="min-h-screen bg-gray-50">
                 <PortalHeader eventName={event.name} />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

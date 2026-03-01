@@ -65,10 +65,9 @@ export default function SignUpPage() {
             throw new Error(data.error || 'Signup failed');
         }
 
-        console.log('Signup success:', data);
-        
+        router.push('/sign-in');
         // Auto-login
-        login(data.token, data.user);
+        // login(data.token, data.user);
 
     } catch (err: any) {
         console.error('Signup error:', err);

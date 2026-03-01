@@ -20,8 +20,6 @@ export const transferApi = {
             if (!response.ok) throw new Error('Failed to fetch transfers');
             const data = await response.json();
             
-            console.log("Transfers API Response:", data); // Debug log
-
             if (Array.isArray(data)) {
                 return data;
             } else if (data.data && Array.isArray(data.data)) {
@@ -29,11 +27,8 @@ export const transferApi = {
             } else if (data.data && data.data.data && Array.isArray(data.data.data)) {
                 // Handle nested pagination structure { success: true, data: { count: 11, data: [...] } }
                 return data.data.data;
-            } else if (data.transfers && Array.isArray(data.transfers)) {
-                 return data.transfers;
             }
             
-            console.warn("Unexpected transfers API response format:", data);
             return [];
         } catch (error) {
             console.error("Error fetching transfers:", error);

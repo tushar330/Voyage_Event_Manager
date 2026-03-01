@@ -33,6 +33,29 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
     const { token, isAuthenticated } = useAuth();
     const [guests, setGuests] = useState<SubGuest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [eventDates, setEventDates] = useState<{ start: string; end: string } | undefined>(undefined);
+
+    const fetchEvent = async () => {
+        if (!token) return;
+        try {
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+            const res = await fetch(`${backendUrl}/api/v1/events/${eventId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const event = data?.data?.event || data?.event || data;
+                if (event) {
+                    setEventDates({
+                        start: event.start_date || event.startDate || '',
+                        end: event.end_date || event.endDate || ''
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("Error fetching event:", err);
+        }
+    };
 
     const fetchGuests = async () => {
         if (!token) return;
@@ -53,10 +76,8 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
             const result: APIResponse = await response.json();
             const allGuests = result.guests || [];
             
-            console.log("Looking for GuestID (Organizer):", guestId);
-            if (allGuests.length > 0) {
-                console.log("[DEBUG] First guest from API:", JSON.stringify(allGuests[0], null, 2));
-            }
+
+
 
             const mappedGuests: SubGuest[] = allGuests.map(g => ({
                 id: g.guest_id || g.ID || g.id || '',
@@ -64,7 +85,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
                 email: g.Email || g.email || '',
                 phone: g.Phone || g.phone || '',
                 age: g.Age || g.age || 0,
-                headGuestId: guestId,
+                eventManagerId: guestId,
                 familyId: g.FamilyID || g.familyId || g.family_id || '',
                 guestCount: 1,
                 roomGroupId: g.RoomGroupID || g.roomGroupId || '',
@@ -72,7 +93,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
                 departureDate: g.DepartureDate || g.departure_date || g.departureDate || undefined
             }));
 
-            console.log(`Displaying ${mappedGuests.length} guests.`);
+
             setGuests(mappedGuests);
         } catch (error) {
             console.error("Error fetching guests:", error);
@@ -83,6 +104,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
 
     useEffect(() => {
         if (isAuthenticated) {
+            fetchEvent();
             fetchGuests();
         }
     }, [eventId, guestId, token, isAuthenticated]);
@@ -110,6 +132,10 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
                     eventId={eventId}
                     token={token}
                     onGuestAdded={fetchGuests}
+                    eventDates={eventDates ? {
+                        start: eventDates.start ? new Date(eventDates.start).toISOString().split('T')[0] : '',
+                        end: eventDates.end ? new Date(eventDates.end).toISOString().split('T')[0] : ''
+                    } : undefined}
                 />
                 )}
             </div>
@@ -162,10 +188,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
                 throw new Error("Failed to update guest");
             }
 
-            console.log("Guest updated successfully", {
-                arrivalDate: updatedGuest.arrivalDate,
-                departureDate: updatedGuest.departureDate
-            });
+
             // Refetch to ensure displayed data matches what DB stored
             fetchGuests();
         } catch (error) {
@@ -193,7 +216,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
             if (!response.ok) {
                 throw new Error("Failed to delete guest");
             }
-            console.log("Guest deleted successfully");
+
         } catch (error) {
             console.error("Error deleting guest:", error);
             alert("Failed to delete guest.");

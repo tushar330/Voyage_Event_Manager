@@ -11,9 +11,10 @@ interface GuestListProps {
     eventId: string;
     token: string | null;
     onGuestAdded?: () => void;
+    eventDates?: { start: string; end: string };
 }
 
-export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest, eventId, token, onGuestAdded }: GuestListProps) {
+export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest, eventId, token, onGuestAdded, eventDates }: GuestListProps) {
     const [guests, setGuests] = useState<SubGuest[]>(initialGuests);
     
     // Sync local state if initialGuests changes (e.g. after API refetch parent-side)
@@ -311,7 +312,7 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
         <div className="space-y-4">
             {/* Toast Notification */}
             {toast.visible && (
-                <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white shadow-lg transition-opacity z-50 flex items-center gap-2 ${
+                <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white shadow-lg transition-opacity z-[100] flex items-center gap-2 ${
                     toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
                 }`}>
                     {toast.type === 'success' ? (
@@ -407,6 +408,8 @@ export default function GuestList({ initialGuests, onUpdateGuest, onDeleteGuest,
                             isMainGuest={isEditingMainGuest}
                             onSubmit={handleSaveGuest} 
                             onCancel={() => setIsAddModalOpen(false)} 
+                            showToast={showToast}
+                            eventDates={eventDates}
                         />
                     </div>
                 </div>
@@ -452,21 +455,25 @@ interface FamilyMemberForm {
     age: string;
     email: string;
     phone: string;
+    countryCode: string;
     arrivalDate: string;
     departureDate: string;
 }
 
-function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: { 
+function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel, showToast, eventDates }: { 
     initialData: SubGuest | null, 
     isMainGuest?: boolean,
     onSubmit: (data: GuestInput) => void,
-    onCancel: () => void 
+    onCancel: () => void,
+    showToast: (msg: string, type: 'error' | 'success') => void;
+    eventDates?: { start: string; end: string };
 }) {
     const isEditMode = !!initialData;
     const [name, setName] = useState(initialData?.name || '');
     const [age, setAge] = useState(initialData?.age?.toString() || '');
     const [email, setEmail] = useState(initialData?.email || '');
     const [phone, setPhone] = useState(initialData?.phone || '');
+    const [countryCode, setCountryCode] = useState('+91');
     const parseInitialDate = (dateString?: string) => {
         if (!dateString) return '';
         if (dateString.includes('/')) {
@@ -493,7 +500,7 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: {
         const current = [...familyMembers];
         if (num > current.length) {
             for (let i = current.length; i < num; i++) {
-                current.push({ id: `fm-${i}`, name: '', age: '', email: '', phone: '', arrivalDate: '', departureDate: '' });
+                current.push({ id: `fm-${i}`, name: '', age: '', email: '', phone: '', countryCode: '+91', arrivalDate: '', departureDate: '' });
             }
         } else {
             current.splice(num);
@@ -527,13 +534,26 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Enforce phone constraint for Event Manager (Main Guest)
+        let phoneString = phone.trim();
+        if (phoneString && !phoneString.startsWith('+')) {
+            phoneString = `${countryCode} ${phoneString}`;
+        }
+
+        const digitsOnly = phoneString.replace(/\D/g, '');
+        if (!digitsOnly || digitsOnly.length < 10) {
+            showToast('Please enter a valid phone number with at least 10 digits.', 'error');
+            return;
+        }
+
         setIsSubmitting(true);
 
         const payload: GuestInput = {
             name: name.trim(),
             age: parseInt(age) || 0,
             email: email.trim() || undefined,
-            phone: phone.trim() || undefined,
+            phone: phoneString,
             arrivalDate: formatDateForApi(arrivalDate),
             departureDate: formatDateForApi(departureDate),
         };
@@ -544,7 +564,7 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: {
                 age: parseInt(m.age) || 0,
                 type: (parseInt(m.age) || 0) < 16 ? 'child' : 'adult',
                 email: m.email.trim() || undefined,
-                phone: m.phone.trim() || undefined,
+                phone: m.phone.trim() ? (m.phone.trim().startsWith('+') ? m.phone.trim() : `${m.countryCode} ${m.phone.trim()}`) : undefined,
                 arrivalDate: formatDateForApi(m.arrivalDate),
                 departureDate: formatDateForApi(m.departureDate),
             }));
@@ -571,7 +591,20 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: {
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Phone *</label>
-                    <input type="tel" required className={inputClass} value={phone} onChange={e => setPhone(e.target.value)} />
+                    <div className="flex mt-1 shadow-sm rounded-md">
+                        <select
+                            value={countryCode}
+                            onChange={e => setCountryCode(e.target.value)}
+                            className="rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                        >
+                            <option value="+1">+1 (US)</option>
+                            <option value="+44">+44 (UK)</option>
+                            <option value="+91">+91 (IN)</option>
+                            <option value="+61">+61 (AU)</option>
+                            <option value="+971">+971 (AE)</option>
+                        </select>
+                        <input type="tel" required className="flex-1 rounded-r-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" />
+                    </div>
                 </div>
             </div>
 
@@ -583,11 +616,11 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: {
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Arrival Date *</label>
-                    <input type="date" required className={inputClass} value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} />
+                    <input type="date" required className={inputClass} value={arrivalDate} min={eventDates?.start} max={eventDates?.end} onChange={e => setArrivalDate(e.target.value)} />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Departure Date *</label>
-                    <input type="date" required className={inputClass} value={departureDate} onChange={e => setDepartureDate(e.target.value)} />
+                    <input type="date" required className={inputClass} value={departureDate} min={arrivalDate || eventDates?.start} max={eventDates?.end} onChange={e => setDepartureDate(e.target.value)} />
                 </div>
             </div>
 
@@ -601,7 +634,7 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: {
                                 type="button"
                                 onClick={() => {
                                     const nextId = `fm-${Date.now()}-${familyMembers.length}`;
-                                    setFamilyMembers([...familyMembers, { id: nextId, name: '', age: '', email: '', phone: '', arrivalDate: '', departureDate: '' }]);
+                                    setFamilyMembers([...familyMembers, { id: nextId, name: '', age: '', email: '', phone: '', countryCode: '+91', arrivalDate: '', departureDate: '' }]);
                                     setNumFamilyMembers(String(familyMembers.length + 1));
                                 }}
                                 className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md flex items-center gap-1 transition-colors"
@@ -646,17 +679,30 @@ function GuestForm({ initialData, isMainGuest = false, onSubmit, onCancel }: {
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Phone *</label>
-                                                <input type="tel" required className={inputClass} value={member.phone} onChange={e => updateFamilyMember(member.id, 'phone', e.target.value)} placeholder="Phone number" />
+                                                <div className="flex shadow-sm rounded-md">
+                                                    <select
+                                                        value={member.countryCode}
+                                                        onChange={e => updateFamilyMember(member.id, 'countryCode', e.target.value)}
+                                                        className="rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-2 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                                                    >
+                                                        <option value="+1">+1</option>
+                                                        <option value="+44">+44</option>
+                                                        <option value="+91">+91</option>
+                                                        <option value="+61">+61</option>
+                                                        <option value="+971">+971</option>
+                                                    </select>
+                                                    <input type="tel" required className="flex-1 rounded-r-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm" value={member.phone} onChange={e => updateFamilyMember(member.id, 'phone', e.target.value)} placeholder="Phone" />
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Arrival Date *</label>
-                                                <input type="date" required className={inputClass} value={member.arrivalDate} onChange={e => updateFamilyMember(member.id, 'arrivalDate', e.target.value)} />
+                                                <input type="date" required className={inputClass} value={member.arrivalDate} min={eventDates?.start} max={eventDates?.end} onChange={e => updateFamilyMember(member.id, 'arrivalDate', e.target.value)} />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Departure Date *</label>
-                                                <input type="date" required className={inputClass} value={member.departureDate} onChange={e => updateFamilyMember(member.id, 'departureDate', e.target.value)} />
+                                                <input type="date" required className={inputClass} value={member.departureDate} min={member.arrivalDate || eventDates?.start} max={eventDates?.end} onChange={e => updateFamilyMember(member.id, 'departureDate', e.target.value)} />
                                             </div>
                                         </div>
                                     </div>

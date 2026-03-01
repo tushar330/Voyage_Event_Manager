@@ -25,6 +25,7 @@ export interface CartItemDetail {
     tax_and_fees: number;
     notes?: string;
     created_at: string;
+    ref_id: string;
 
     // Populated based on 'type'
     room_details?: any;

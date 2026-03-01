@@ -179,7 +179,7 @@ export default function ManageGuestsPage({
                 Guest Management
               </h1>
               <p className="text-sm text-neutral-600">
-                Manage RSVPs and guest details for Event ID: {eventId}
+                Manage RSVPs and guest details for Event
               </p>
             </div>
           </div>
@@ -188,7 +188,8 @@ export default function ManageGuestsPage({
           <div className="flex items-center gap-3">
             <button
               onClick={handleSendInvites}
-              disabled={sendingInvites || loading}
+              disabled={sendingInvites || loading || guests.length === 0}
+              title={guests.length === 0 ? "No guests to invite" : "Send invitations"}
               className="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {sendingInvites ? (

@@ -28,11 +28,11 @@ export interface Event {
     pendingActions?: number;
     pendingActionDetails?: string[];
     status: 'active' | 'upcoming' | 'completed';
-    headGuestId?: string;
+    eventManagerId?: string;
     roomsInventory?: RoomInventoryItem[];
 }
 
-export interface HeadGuest {
+export interface EventManager {
     id: string;
     name: string;
     email: string;
@@ -49,7 +49,7 @@ export interface SubGuest {
     age?: number;
     type?: string;
     guestCount?: number;
-    headGuestId: string;
+    eventManagerId: string;
     roomGroupId?: string;
     familyId?: string;
     arrivalDate?: string;

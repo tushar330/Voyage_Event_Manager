@@ -42,7 +42,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
       });
       if (!res.ok) throw new Error("Failed to fetch events");
       const data = await res.json();
-      console.log("Fetched Events Data:", data); // Debug log restored
+
 
       // API Response structure: { success: true, data: { message: "...", events: [...] } }
       const eventsList = data.data?.events || [];
@@ -64,11 +64,11 @@ export function EventProvider({ children }: { children: ReactNode }) {
         pendingActions: e.pendingActions || 0,
         pendingActionDetails: e.pendingActionDetails || [],
         status: (e.status || e.Status || "draft").toLowerCase(),
-        headGuestId: e.head_guest_id || e.headGuestId || e.HeadGuestID,
+        eventManagerId: e.event_manager_id || e.eventManagerId || e.EventManagerID,
         roomsInventory: e.rooms_inventory || e.roomsInventory || e.RoomsInventory || [],
       };
     });
-      console.log("Mapped Events:", mappedEvents); // Debug log restored
+
       setEvents(mappedEvents);
     } catch (err: any) {
       console.error("Fetch events error:", err);
@@ -138,6 +138,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
         budgetSpent: (updatedEvent as any).budgetSpent,
         organizer: updatedEvent.organizer,
         roomsInventory: updatedEvent.roomsInventory,
+        hotelId: (updatedEvent as any).hotelId,
       };
 
       const res = await fetch(`${backendUrl}/api/v1/events/${id}`, {

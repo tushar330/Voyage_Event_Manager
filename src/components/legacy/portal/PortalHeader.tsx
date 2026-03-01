@@ -70,7 +70,7 @@ export default function PortalHeader({
             >
               <div className="relative h-12 w-12 shrink-0">
                 <Image
-                  src="/images/logo.jpg"
+                  src="/images/logo.png"
                   alt="TBO Logo"
                   fill
                   className="object-contain rounded-lg shadow-sm"
@@ -139,11 +139,11 @@ export default function PortalHeader({
               >
                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : 'H'}
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'E'}
                   </span>
                 </div>
                 <span className="text-white text-sm font-medium hidden md:block">
-                  {user?.name || 'Head Guest'}
+                  {user?.name || 'Event Manager'}
                 </span>
                 <svg 
                   className={`w-4 h-4 text-white transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 

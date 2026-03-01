@@ -36,8 +36,6 @@ export default function SignInPage() {
         if (!res.ok) {
             throw new Error(data.error || 'Login failed');
         }
-
-        console.log('Login success:', data);
         
         login(data.token, data.user, data.eventId);
 

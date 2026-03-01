@@ -42,7 +42,7 @@ export async function POST(
 
     // 2. Call Go Backend to create DB User and Link to Event
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-    const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/head-guest`, {
+    const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/event-manager`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export async function POST(
     return NextResponse.json({ ...data, tempPassword: 'ChangeMe123!' });
 
   } catch (error) {
-    console.error('Head Guest API Error:', error);
+    console.error('Event Manager API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

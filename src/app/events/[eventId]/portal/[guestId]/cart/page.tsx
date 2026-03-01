@@ -256,7 +256,7 @@ export default function GuestCartPage() {
                       src={
                         group.hotel_details?.image ||
                         group.hotel_details?.image_urls?.[0] ||
-                        "/placeholder-hotel.jpg"
+                        "/images/placeholder.jpg"
                       }
                       alt={group.hotel_details?.name}
                       className="w-16 h-16 rounded-xl object-cover"
@@ -329,6 +329,7 @@ export default function GuestCartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
+                        hideImage={true}
                       />
                     ))}
                   </div>
@@ -347,6 +348,7 @@ export default function GuestCartPage() {
                         key={item.id}
                         item={item}
                         activeTab={activeTab}
+                        hideImage={true}
                       />
                     ))}
                   </div>
@@ -447,10 +449,10 @@ const ReadOnlyCartItemRow: React.FC<ReadOnlyCartItemRowProps> = ({
         return (
           item.hotel_details?.image ||
           item.hotel_details?.image_urls?.[0] ||
-          "/placeholder-hotel.jpg"
+          "/images/placeholder.jpg"
         );
       case "transfer":
-        return "/placeholder-transfer.jpg";
+        return "/images/cab.jpg";
       default:
         return "/placeholder-item.jpg";
     }

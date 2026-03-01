@@ -17,7 +17,7 @@ export const TransferList: React.FC<TransferListProps> = ({ transfers, onAdd }) 
         const qty = qtyMap[transfer.id] || 1;
         setLoadingMap(prev => ({ ...prev, [transfer.id]: true }));
         try {
-            console.log("Adding to cart:", transfer.id, qty);
+
             await onAdd(transfer.id, qty);
             toast.success('Transfer added to cart!');
         } catch (error) {

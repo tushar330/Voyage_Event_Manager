@@ -14,22 +14,48 @@ export default function VenueShowcaseCard({ venue }: VenueShowcaseCardProps) {
   const eventId = params.eventId as string;
   const guestId = params.guestId as string;
 
+  const isApproved = venue.status === "approved";
+  const isCart = venue.status === "cart";
+  
+  // Highlight approved cards
+  const borderClass = isApproved 
+    ? "border-green-400 shadow-md ring-2 ring-green-100" 
+    : "border-gray-100 hover:border-blue-200 hover:shadow-md";
+
   return (
     <Link
       href={`/events/${eventId}/portal/${guestId}/venue/${venue.id}`}
-      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300 group"
+      className={`bg-white rounded-xl overflow-hidden transition-all duration-300 group block ${borderClass}`}
     >
       <div className="relative h-56 w-full overflow-hidden">
-        <Image
-          src={venue.images[0]}
-          alt={venue.name}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute top-3 right-3">
-          <span className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-gray-900 uppercase tracking-wider shadow-sm">
-            Agent Recommended
-          </span>
+        {venue.images && venue.images.length > 0 ? (
+          <Image
+            src={venue.images[0]}
+            alt={venue.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <span className="text-gray-400">No image available</span>
+          </div>
+        )}
+        <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
+          {isApproved && (
+            <span className="bg-green-600 shadow-sm px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
+              Finalized Selection
+            </span>
+          )}
+          {isCart && (
+            <span className="bg-blue-600 shadow-sm px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
+              In Consideration
+            </span>
+          )}
+          {!isApproved && !isCart && (
+            <span className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-gray-900 uppercase tracking-wider shadow-sm">
+              Agent Recommended
+            </span>
+          )}
         </div>
       </div>
 

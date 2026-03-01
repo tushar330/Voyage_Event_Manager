@@ -14,7 +14,7 @@ export async function GET(req: Request) {
             targetUrl += `?${queryString}`;
         }
 
-        console.log(`Proxying request to: ${targetUrl}`);
+
 
         const authHeader = req.headers.get('Authorization') || '';
         const res = await fetch(targetUrl, {

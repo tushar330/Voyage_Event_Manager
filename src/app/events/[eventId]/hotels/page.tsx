@@ -489,16 +489,7 @@ export default function HotelListingPage() {
               href={`/events/${eventId}/cart`}
               className="px-6 py-3 bg-neutral-900 overflow-hidden text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg transform active:scale-95 flex items-center gap-3 group relative"
             >
-              <div className="flex -space-x-2">
-                {cart?.hotels.slice(0, 3).map((group, i) => (
-                  <img
-                    key={i}
-                    src={group.hotel_details?.image || "/placeholder-hotel.jpg"}
-                    className="w-6 h-6 rounded-full border-2 border-neutral-900 object-cover"
-                    alt=""
-                  />
-                ))}
-              </div>
+
               <span>View Cart</span>
               {cart &&
                 (cart.hotels?.length > 0 || cart.flights?.length > 0) && (

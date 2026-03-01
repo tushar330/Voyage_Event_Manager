@@ -109,8 +109,7 @@ export const hotelApi = {
         }
         const result = await response.json();
 
-        const roomsList = result.data || result || [];
-        console.log("DEBUG: Raw Rooms Response:", roomsList); // Debug logging
+        const roomsList = result?.data || result?.rooms || (Array.isArray(result) ? result : []);
         return (Array.isArray(roomsList) ? roomsList : []).map((r: any) => {
             // The cart backend does a UUID lookup on room_offers, so we MUST send a UUID.
             // Try every field that might hold the UUID, in priority order.
@@ -121,13 +120,7 @@ export const hotelApi = {
                             isUUID(r.id) ? r.id :
                                 r.room_offer_id || r.id; // last-resort fallback (may still fail)
 
-            if (!isUUID(roomId)) {
-                console.warn(
-                    `[hotelApi.getRooms] Room "${r.name}" has no UUID ID – ` +
-                    `cart will likely return "Room offer not found". Raw room:`,
-                    r
-                );
-            }
+
 
             return {
                 id: roomId,
@@ -152,7 +145,7 @@ export const hotelApi = {
         if (!response.ok) throw new Error('Failed to fetch banquets');
         const result = await response.json();
 
-        const banquetsList = result.data || result || [];
+        const banquetsList = Array.isArray(result) ? result : (result.data || []);
         return (Array.isArray(banquetsList) ? banquetsList : []).map((b: any) => ({
             id: b.id,
             name: b.name,
@@ -173,7 +166,7 @@ export const hotelApi = {
         if (!response.ok) throw new Error('Failed to fetch catering');
         const result = await response.json();
 
-        const cateringList = result.data || result || [];
+        const cateringList = Array.isArray(result) ? result : (result.data || []);
         return (Array.isArray(cateringList) ? cateringList : []).map((c: any) => ({
             id: c.id,
             name: c.name,

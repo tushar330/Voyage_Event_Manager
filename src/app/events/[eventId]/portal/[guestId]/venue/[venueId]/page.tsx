@@ -1,9 +1,11 @@
 "use client";
 
-import { use } from "react";
+import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { mockCuratedVenues } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+import { CuratedVenue } from "@/types";
 import RoomIntelligence from "@/components/legacy/portal/RoomIntelligence";
 import VirtualVenueModule from "@/components/legacy/portal/VirtualVenueModule";
 import MealPlanCards from "@/components/legacy/portal/MealPlanCards";
@@ -14,7 +16,42 @@ export default function VenueDetailPage({
   params: Promise<{ eventId: string; guestId: string; venueId: string }>;
 }) {
   const { eventId, guestId, venueId } = use(params);
-  const venue = mockCuratedVenues.find((v) => v.id === venueId);
+  const { token } = useAuth();
+  const [venue, setVenue] = useState<CuratedVenue | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVenue = async () => {
+      if (!token || !eventId) return;
+
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+        const res = await fetch(`${backendUrl}/api/v1/events/${eventId}/venues`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const venues: CuratedVenue[] = data.data?.venues || data.venues || [];
+          const foundVenue = venues.find((v) => v.id === venueId);
+          setVenue(foundVenue || null);
+        } else {
+          toast.error("Failed to load venue details");
+        }
+      } catch (error) {
+        console.error("Error fetching venue details:", error);
+        toast.error("Error fetching venue details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVenue();
+  }, [eventId, venueId, token]);
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500 font-medium space-y-4 pb-20 mt-4 text-xl">Loading venue details...</div>;
+  }
 
   if (!venue) {
     return (
@@ -47,13 +84,19 @@ export default function VenueDetailPage({
       {/* Hero Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
         <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-lg border border-gray-100">
-          <Image
-            src={venue.images[0]}
-            alt={venue.name}
-            fill
-            className="object-cover"
-            priority
-          />
+          {venue.images && venue.images.length > 0 ? (
+            <Image
+              src={venue.images[0]}
+              alt={venue.name}
+              fill
+              className="object-cover"
+              priority
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              <span className="text-gray-400">No image available</span>
+            </div>
+          )}
         </div>
         <div className="space-y-6">
           <h1 className="text-4xl font-black text-gray-900 tracking-tight">
@@ -85,7 +128,7 @@ export default function VenueDetailPage({
             <p className="leading-relaxed">{venue.description}</p>
           </div>
           <div className="pt-4 flex flex-wrap gap-2">
-            {venue.amenities.map((amenity) => (
+            {(venue.amenities || []).map((amenity) => (
               <span
                 key={amenity}
                 className="px-4 py-1.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg border border-gray-200"
@@ -140,15 +183,6 @@ export default function VenueDetailPage({
         </section>
       </div>
 
-      {/* Action Footer */}
-      <div className="sticky bottom-6 flex justify-center pt-8 pointer-events-none">
-        <Link
-          href={`/events/${eventId}/portal/${guestId}/rooms`}
-          className="pointer-events-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl shadow-xl shadow-blue-200 font-black uppercase tracking-widest text-sm flex items-center gap-3 active:scale-[0.98] transition-all"
-        >
-          <span>🏠</span> Proceed to Room Assignments
-        </Link>
-      </div>
     </div>
   );
 }

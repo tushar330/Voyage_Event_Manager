@@ -52,10 +52,10 @@ export const allocationService = {
         const rawGuests = response?.data?.guests ?? response?.guests ?? [];
 
         return rawGuests.map((g: any) => ({
-            guest_id: g.guest_id ?? g.id,
-            guest_name: g.guest_name ?? g.name,
-            family_id: g.family_id,
-            is_head_guest: g.is_head_guest ?? false,
+            guest_id: g.guest_id ?? g.id ?? g.ID,
+            guest_name: g.guest_name ?? g.name ?? g.Name,
+            family_id: g.family_id ?? g.FamilyID,
+            is_event_manager: g.is_event_manager ?? g.IsEventManager ?? false,
         }));
     },
 
@@ -68,12 +68,12 @@ export const allocationService = {
         const payload = response?.data ?? response;
 
         return {
-            status: payload?.status ?? "draft",
-            rooms_inventory: (payload?.rooms_inventory ?? []).map((room: any) => ({
+            status: payload?.status ?? payload?.Status ?? "draft",
+            rooms_inventory: (payload?.rooms_inventory ?? payload?.RoomsInventory ?? []).map((room: any) => ({
                 ...room,
-                total: room.total ?? room.available,
+                total: room.total ?? room.Total ?? room.available ?? room.Available,
             })),
-            allocations: payload?.allocations ?? []
+            allocations: payload?.allocations ?? payload?.Allocations ?? []
         };
     },
 
