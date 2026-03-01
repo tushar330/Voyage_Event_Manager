@@ -87,7 +87,7 @@ export default function GuestsPage({ params }: { params: Promise<{ eventId: stri
                 email: g.Email || g.email || '',
                 phone: g.Phone || g.phone || '',
                 age: g.Age || g.age || 0,
-                headGuestId: guestId,
+                eventManagerId: guestId,
                 familyId: g.FamilyID || g.familyId || g.family_id || '',
                 guestCount: 1,
                 roomGroupId: g.RoomGroupID || g.roomGroupId || '',
