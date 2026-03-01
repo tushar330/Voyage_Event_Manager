@@ -77,10 +77,7 @@ export default function GuestsPage({
       setEventError("");
       try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-        // Read token synchronously from localStorage — avoids React context timing race.
-        // AuthContext also reads from localStorage, but its state is null until after
-        // the first effect runs. By reading localStorage directly here we always have
-        // the token immediately on mount.
+
         const authToken =
           token ??
           (typeof window !== "undefined" ? localStorage.getItem("token") : null);
@@ -109,7 +106,7 @@ export default function GuestsPage({
     };
     fetchEvent();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]); // run once per event — token is read from localStorage directly
+  }, [eventId]);
 
   // Form state
   const [name, setName] = useState("");
