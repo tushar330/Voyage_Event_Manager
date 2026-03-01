@@ -22,9 +22,8 @@ export const cartApi = {
         const response = await fetch(url, { headers });
         if (!response.ok) throw new Error('Failed to fetch cart');
         const result = await response.json();
-        // Unwrap: response -> data -> cart
-        const data = result.data || result;
-        return data.cart || data;
+        const data = result?.cart || result?.data?.cart || result?.data || result;
+        return data;
     },
 
     /**
