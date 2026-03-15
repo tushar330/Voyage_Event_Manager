@@ -1,4 +1,4 @@
-# Voyage Event Manager (TBO)
+# Voyage Event Manager
 
 > **Enterprise-grade SaaS platform for MICE events and destination weddings.**  
 > Streamline your group bookings from hotel inventory and room mapping to guest portals and post-booking intelligence.
@@ -24,7 +24,7 @@
 
 ## 🌐 What Is This?
 
-**Voyage Event Manager** (internally referred to as **TBO**) is a full-stack web application built for travel agents and event planners who manage **MICE** (Meetings, Incentives, Conferences, and Exhibitions) events and **destination weddings**.
+**Voyage Event Manager** is a full-stack web application built for travel agents and event planners who manage **MICE** (Meetings, Incentives, Conferences, and Exhibitions) events and **destination weddings**.
 
 Instead of juggling spreadsheets and email chains, agents get a centralised command centre to:
 
