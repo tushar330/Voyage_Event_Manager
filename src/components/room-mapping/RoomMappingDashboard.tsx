@@ -6,8 +6,10 @@ import { useAuth } from "@/context/AuthContext";
 import { allocationService } from "@/services/allocation";
 import FamiliesList from "@/components/room-mapping/FamiliesList";
 import RoomInventoryGrid from "@/components/room-mapping/RoomInventoryGrid";
+import AIAllocationModal from "@/components/room-mapping/AIAllocationModal";
 import Link from "next/link";
 import { Toaster, toast } from "sonner";
+import { AIAllocateResponse } from "@/types/allocation";
 
 const isUUID = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -21,7 +23,9 @@ interface RoomMappingDashboardProps {
 export default function RoomMappingDashboard({ eventId, role, guestId }: RoomMappingDashboardProps) {
   const { token } = useAuth();
   const queryClient = useQueryClient();
-  const [showAllocationUI, setShowAllocationUI] = useState(false); // UX State for "Start Allocation"
+  const [showAllocationUI, setShowAllocationUI] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiData, setAiData] = useState<AIAllocateResponse | null>(null);
 
   const isValidId = eventId && isUUID(eventId);
 
@@ -130,14 +134,14 @@ export default function RoomMappingDashboard({ eventId, role, guestId }: RoomMap
     onError: (err: any) => flashMessage("error", err.message),
   });
 
-  const autoAllocateMutation = useMutation({
+  const aiAllocateMutation = useMutation({
     mutationFn: async () => {
         if (!token) throw new Error("No token");
-        return allocationService.autoAllocate(eventId, token);
+        return allocationService.aiAllocate(eventId, token);
     },
-    onSuccess: (data: any) => {
-        flashMessage("success", `Auto-allocated ${data.allocations_count} families.`);
-        queryClient.invalidateQueries({ queryKey: ["allocations", eventId] });
+    onSuccess: (data: AIAllocateResponse) => {
+        setAiData(data);
+        setShowAIModal(true);
     },
     onError: (err: any) => flashMessage("error", err.message),
   });
@@ -228,14 +232,22 @@ export default function RoomMappingDashboard({ eventId, role, guestId }: RoomMap
                     </button>
                 )}
 
-                {/* Auto Allocate Button - BOTH */}
+                {/* AI Auto Allocate Button - BOTH roles */}
                 {!isLockedOrFinalized && (isAllocating || hasAllocations) && (
                     <button
-                        onClick={() => autoAllocateMutation.mutate()}
-                        disabled={autoAllocateMutation.isPending}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors"
+                        id="ai-auto-allocate-btn"
+                        onClick={() => aiAllocateMutation.mutate()}
+                        disabled={aiAllocateMutation.isPending}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-colors flex items-center gap-1.5"
                     >
-                        {autoAllocateMutation.isPending ? "Allocating..." : "Auto Allocate"}
+                        {aiAllocateMutation.isPending ? (
+                            <>
+                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Analysing...
+                            </>
+                        ) : (
+                            <>✨ AI Auto Allocate</>
+                        )}
                     </button>
                 )}
 
@@ -321,6 +333,20 @@ export default function RoomMappingDashboard({ eventId, role, guestId }: RoomMap
                 )}
               </div>
           </div>
+      )}
+      {/* AI Allocation Results Modal */}
+      {showAIModal && aiData && token && (
+          <AIAllocationModal
+              isOpen={showAIModal}
+              onClose={() => setShowAIModal(false)}
+              eventId={eventId}
+              token={token}
+              data={aiData}
+              onApplySuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ["allocations", eventId] });
+                  setShowAIModal(false);
+              }}
+          />
       )}
     </div>
   );

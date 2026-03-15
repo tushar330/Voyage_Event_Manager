@@ -1,4 +1,4 @@
-import { AllocateRequest, GetAllocationsResponse, UpdateAllocationRequest, EventDetails, Guest, RoomInventory, AllocatedFamily } from "@/types/allocation";
+import { AllocateRequest, GetAllocationsResponse, UpdateAllocationRequest, EventDetails, Guest, RoomInventory, AllocatedFamily, AIAllocateResponse } from "@/types/allocation";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const API_BASE_URL = `${backendUrl}/api/v1`;
@@ -105,6 +105,12 @@ export const allocationService = {
 
     reopenEvent: async (eventId: string, token: string): Promise<void> => {
         return fetchWithAuth(`/events/${eventId}/reopen`, token, {
+            method: "POST",
+        });
+    },
+
+    aiAllocate: async (eventId: string, token: string): Promise<AIAllocateResponse> => {
+        return fetchWithAuth(`/events/${eventId}/ai-allocate`, token, {
             method: "POST",
         });
     },
